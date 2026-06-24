@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Arcade Crawlee project.",
+  "engines": {
+    "node": ">=24"
+  },
   "dependencies": {
     "@crawlee/impit-client": "^3.0.0",
     "crawlee": "^3.0.0",

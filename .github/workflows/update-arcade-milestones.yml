@@ -6,7 +6,7 @@ on:
     - cron: "0 0 * * *"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   update:
@@ -20,12 +20,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -37,9 +37,22 @@ jobs:
       - name: Crawl and publish Remote Config
         run: npm start
 
+      - name: Commit crawled data
+        run: |
+          if git diff --quiet -- data/arcade_milestones.json; then
+            echo "Arcade data unchanged; commit skipped."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/arcade_milestones.json
+          git commit -m "chore: update Arcade milestones"
+          git push
+
       - name: Upload crawler diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: arcade-crawler-diagnostics
           path: storage/

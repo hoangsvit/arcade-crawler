@@ -1,6 +1,7 @@
 import 'dotenv/config';
 
 import { PlaywrightCrawler, sleep } from 'crawlee';
+import { mkdir, writeFile } from 'node:fs/promises';
 import {
     applicationDefault,
     cert,
@@ -17,6 +18,7 @@ const REMOTE_CONFIG_PARAMETER_KEY =
     process.env.FIREBASE_REMOTE_CONFIG_KEY ?? 'arcade_milestones';
 const SHOULD_PUBLISH_REMOTE_CONFIG =
     process.env.PUBLISH_REMOTE_CONFIG?.toLowerCase() === 'true';
+const GITHUB_DATA_FILE = 'data/arcade_milestones.json';
 
 const TIERS = [
     { points: 50, league: 'Arcade Trooper', slots: 6000 },
@@ -201,6 +203,14 @@ const crawler = new PlaywrightCrawler({
             ...tier,
             spotsLeft: spotsLeft[index] as number,
         }));
+
+        await mkdir('data', { recursive: true });
+        await writeFile(
+            GITHUB_DATA_FILE,
+            `${JSON.stringify(data, null, 2)}\n`,
+            'utf8',
+        );
+
         const publishedTemplate = SHOULD_PUBLISH_REMOTE_CONFIG
             ? await publishToRemoteConfig(data)
             : undefined;
@@ -211,6 +221,7 @@ const crawler = new PlaywrightCrawler({
             frameUrl: matchingFrameUrl,
             count: data.length,
             data,
+            githubDataFile: GITHUB_DATA_FILE,
             remoteConfig: {
                 published: SHOULD_PUBLISH_REMOTE_CONFIG,
                 changed: publishedTemplate?.changed ?? false,
@@ -230,6 +241,7 @@ const crawler = new PlaywrightCrawler({
             url: request.loadedUrl,
             count: data.length,
             data,
+            githubDataFile: GITHUB_DATA_FILE,
             published: SHOULD_PUBLISH_REMOTE_CONFIG,
             changed: publishedTemplate?.changed ?? false,
             projectId: publishedTemplate?.projectId,

@@ -3,6 +3,10 @@
 Crawler này lấy số chỗ còn lại từ Google Cloud Skills Boost Arcade và
 publish mảng JSON vào Firebase Remote Config.
 
+Yêu cầu Node.js 24 trở lên.
+
+Dữ liệu mới nhất được lưu tại `data/arcade_milestones.json`.
+
 ## Firebase
 
 Sao chép `.env.example` thành `.env`:
@@ -82,7 +86,8 @@ bộ nội dung file JSON vào giá trị của secret.
 Workflow `.github/workflows/update-arcade-milestones.yml` chạy mỗi ngày lúc
 00:00 UTC (07:00 giờ Việt Nam) và cũng có thể chạy thủ công bằng
 `workflow_dispatch`. Workflow đặt `PUBLISH_REMOTE_CONFIG=true`, nên dữ liệu sẽ
-được publish lên Firebase.
+được publish lên Firebase. Nếu file `data/arcade_milestones.json` thay đổi,
+workflow cũng tự commit và push file mới bằng `github-actions[bot]`.
 
 Tại **Settings → Secrets and variables → Actions**, cấu hình:
 
