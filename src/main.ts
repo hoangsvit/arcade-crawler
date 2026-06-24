@@ -93,14 +93,40 @@ async function publishToRemoteConfig(data: unknown) {
 }
 
 const crawler = new PlaywrightCrawler({
-    maxRequestRetries: 0,
+    maxRequestRetries: 3,
     maxRequestsPerCrawl: 1,
+    navigationTimeoutSecs: 60,
     requestHandlerTimeoutSecs: 120,
+    useSessionPool: true,
+    persistCookiesPerSession: false,
     preNavigationHooks: [
-        async (_context, gotoOptions) => {
+        async ({ request, session }, gotoOptions) => {
+            if (request.retryCount > 0) {
+                session?.retire();
+                await sleep(request.retryCount * 3_000);
+            }
+
             gotoOptions.waitUntil = 'domcontentloaded';
+            gotoOptions.timeout = 60_000;
         },
     ],
+    errorHandler: async ({ request, session, log }, error) => {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (
+            message.includes('ERR_EMPTY_RESPONSE') ||
+            message.includes('ERR_CONNECTION_RESET') ||
+            message.includes('ERR_TIMED_OUT')
+        ) {
+            session?.retire();
+        }
+
+        log.warning('Arcade request failed; Crawlee will retry.', {
+            url: request.url,
+            retryCount: request.retryCount,
+            error: message,
+        });
+    },
     async requestHandler({ request, page, log, pushData }) {
         const deadline = Date.now() + SELECTOR_TIMEOUT_MS;
         let matchingFrameUrl: string | undefined;
