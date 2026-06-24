@@ -1,0 +1,47 @@
+name: Update Arcade milestones
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_REMOTE_CONFIG_KEY: arcade_milestones
+      PUBLISH_REMOTE_CONFIG: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Crawl and publish Remote Config
+        run: npm start
+
+      - name: Upload crawler diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcade-crawler-diagnostics
+          path: storage/
+          if-no-files-found: ignore
+          retention-days: 7
