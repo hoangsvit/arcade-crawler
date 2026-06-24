@@ -4,6 +4,7 @@ import { PlaywrightCrawler, sleep } from 'crawlee';
 import {
     applicationDefault,
     cert,
+    getApp,
     getApps,
     initializeApp,
 } from 'firebase-admin/app';
@@ -25,7 +26,7 @@ const TIERS = [
 ] as const;
 
 function initializeFirebase() {
-    if (getApps().length > 0) return;
+    if (getApps().length > 0) return getApp();
 
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     const rawServiceAccount = serviceAccountJson
@@ -38,7 +39,7 @@ function initializeFirebase() {
     const projectId =
         process.env.FIREBASE_PROJECT_ID ?? rawServiceAccount?.project_id;
 
-    initializeApp({
+    return initializeApp({
         credential: rawServiceAccount
             ? cert({
                 projectId: rawServiceAccount.project_id,
@@ -51,14 +52,29 @@ function initializeFirebase() {
 }
 
 async function publishToRemoteConfig(data: unknown) {
-    initializeFirebase();
+    const app = initializeFirebase();
 
-    const remoteConfig = getRemoteConfig();
+    const remoteConfig = getRemoteConfig(app);
     const template = await remoteConfig.getTemplate();
+    const nextValue = JSON.stringify(data);
+    const currentDefaultValue =
+        template.parameters[REMOTE_CONFIG_PARAMETER_KEY]?.defaultValue;
+    const currentValue =
+        currentDefaultValue && 'value' in currentDefaultValue
+            ? currentDefaultValue.value
+            : undefined;
+
+    if (currentValue === nextValue) {
+        return {
+            changed: false,
+            projectId: app.options.projectId,
+            version: template.version?.versionNumber,
+        };
+    }
 
     template.parameters[REMOTE_CONFIG_PARAMETER_KEY] = {
         defaultValue: {
-            value: JSON.stringify(data),
+            value: nextValue,
         },
         description: 'Google Cloud Skills Boost Arcade prize tiers',
         valueType: 'JSON',
@@ -67,7 +83,13 @@ async function publishToRemoteConfig(data: unknown) {
         description: `Update ${REMOTE_CONFIG_PARAMETER_KEY} from Arcade crawler`,
     };
 
-    return remoteConfig.publishTemplate(template);
+    const publishedTemplate = await remoteConfig.publishTemplate(template);
+
+    return {
+        changed: true,
+        projectId: app.options.projectId,
+        version: publishedTemplate.version?.versionNumber,
+    };
 }
 
 const crawler = new PlaywrightCrawler({
@@ -81,27 +103,48 @@ const crawler = new PlaywrightCrawler({
     ],
     async requestHandler({ request, page, log, pushData }) {
         const deadline = Date.now() + SELECTOR_TIMEOUT_MS;
-        let matchingFrame = page.mainFrame();
-        let tierPoints = matchingFrame.locator(TIER_POINTS_SELECTOR);
+        let matchingFrameUrl: string | undefined;
+        let spotsLeft: Array<number | null> | undefined;
 
-        while (Date.now() < deadline) {
+        while (Date.now() < deadline && !spotsLeft) {
             for (const frame of page.frames()) {
-                const locator = frame.locator(TIER_POINTS_SELECTOR);
+                try {
+                    const locator = frame.locator(TIER_POINTS_SELECTOR);
+                    const values = await locator.evaluateAll((elements) =>
+                        elements.map((element) => {
+                            const text = (element.textContent ?? '').trim();
+                            const firstNumber = text.match(/\d[\d,]*/)?.[0];
 
-                if ((await locator.count()) > 0) {
-                    matchingFrame = frame;
-                    tierPoints = locator;
-                    break;
+                            return firstNumber
+                                ? Number(firstNumber.replace(/,/g, ''))
+                                : null;
+                        }),
+                    );
+
+                    if (values.length > 0) {
+                        matchingFrameUrl = frame.url();
+                        spotsLeft = values;
+                        break;
+                    }
+                } catch (error) {
+                    const message =
+                        error instanceof Error ? error.message : String(error);
+
+                    if (
+                        message.includes('Frame was detached') ||
+                        message.includes('Execution context was destroyed')
+                    ) {
+                        continue;
+                    }
+
+                    throw error;
                 }
             }
 
-            if ((await tierPoints.count()) > 0) break;
-            await sleep(1_000);
+            if (!spotsLeft) await sleep(1_000);
         }
 
-        const count = await tierPoints.count();
-
-        if (count === 0) {
+        if (!spotsLeft) {
             const title = await page.title();
             const bodyText = ((await page.locator('body').textContent()) ?? '')
                 .replace(/\s+/g, ' ')
@@ -118,17 +161,6 @@ const crawler = new PlaywrightCrawler({
                 `URL: ${page.url()}; title: ${title}; body: ${bodyText}`,
             );
         }
-
-        const spotsLeft = await tierPoints.evaluateAll((elements) =>
-            elements.map((element) => {
-                const text = (element.textContent ?? '').trim();
-                const firstNumber = text.match(/\d[\d,]*/)?.[0];
-
-                return firstNumber
-                    ? Number(firstNumber.replace(/,/g, ''))
-                    : null;
-            }),
-        );
 
         if (
             spotsLeft.length !== TIERS.length ||
@@ -150,27 +182,33 @@ const crawler = new PlaywrightCrawler({
         await pushData({
             url: request.loadedUrl,
             selector: TIER_POINTS_SELECTOR,
-            frameUrl: matchingFrame.url(),
+            frameUrl: matchingFrameUrl,
             count: data.length,
             data,
             remoteConfig: {
                 published: SHOULD_PUBLISH_REMOTE_CONFIG,
+                changed: publishedTemplate?.changed ?? false,
+                projectId: publishedTemplate?.projectId,
                 parameterKey: REMOTE_CONFIG_PARAMETER_KEY,
-                version: publishedTemplate?.version?.versionNumber,
+                version: publishedTemplate?.version,
             },
         });
 
         log.info(
             SHOULD_PUBLISH_REMOTE_CONFIG
-                ? 'Arcade tiers published to Firebase Remote Config.'
+                ? publishedTemplate?.changed
+                    ? 'Arcade tiers published to Firebase Remote Config.'
+                    : 'Arcade tiers unchanged. Remote Config publish skipped.'
                 : 'Arcade tiers collected without publishing Remote Config.',
         {
             url: request.loadedUrl,
             count: data.length,
             data,
             published: SHOULD_PUBLISH_REMOTE_CONFIG,
+            changed: publishedTemplate?.changed ?? false,
+            projectId: publishedTemplate?.projectId,
             parameterKey: REMOTE_CONFIG_PARAMETER_KEY,
-            version: publishedTemplate?.version?.versionNumber,
+            version: publishedTemplate?.version,
         },
         );
     },
