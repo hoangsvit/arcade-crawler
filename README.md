@@ -33,25 +33,6 @@ npm start
 Để publish lên Firebase, đổi `PUBLISH_REMOTE_CONFIG=true` trong `.env`.
 File `.env` đã được Git ignore và không được commit.
 
-### Vì sao không dùng `WXT_FIREBASE_*`?
-
-Các biến như `WXT_FIREBASE_API_KEY`, `WXT_FIREBASE_AUTH_DOMAIN` và
-`WXT_FIREBASE_APP_ID` là Firebase Web SDK config dành cho WXT extension hoặc
-frontend. Prefix `WXT_` khiến biến được đưa vào client bundle và đọc bằng
-`import.meta.env`.
-
-Crawler này là ứng dụng Node.js và cần quyền quản trị để thay đổi Remote Config,
-nên dùng Firebase Admin SDK với:
-
-```dotenv
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
-```
-
-Firebase Web API key chỉ nhận diện project/app; nó không cấp quyền publish
-Remote Config. Không đặt service account private key vào biến có prefix `WXT_`
-vì dữ liệu đó có thể bị đóng gói vào extension và lộ ra phía client.
-
 ### Lấy `FIREBASE_SERVICE_ACCOUNT_JSON`
 
 1. Mở [Firebase Console](https://console.firebase.google.com/).
