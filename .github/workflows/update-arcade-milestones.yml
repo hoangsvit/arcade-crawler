@@ -2,8 +2,16 @@ name: Update Arcade milestones
 
 on:
   workflow_dispatch:
+
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "data/arcade_milestones.json"
+
   schedule:
-    - cron: "*/5 * * * *"
+    # 01:00 UTC = 08:00 sáng Việt Nam
+    - cron: "0 1 * * *"
 
 permissions:
   contents: write
