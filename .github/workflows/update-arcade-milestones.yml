@@ -10,7 +10,7 @@ on:
       - "data/arcade_milestones.json"
 
   schedule:
-    - cron: '0 8,13,18,21 * * *'
+    - cron: '0 8,11,18,21 * * *'
       timezone: "Asia/Ho_Chi_Minh"
 
 permissions:
