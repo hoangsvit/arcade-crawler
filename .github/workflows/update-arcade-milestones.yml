@@ -10,8 +10,6 @@ on:
       - "data/arcade_milestones.json"
 
   schedule:
-    # 01:00 UTC = 08:00 sáng Việt Nam
-    # - cron: "0 1 * * *"
     - cron: '0 8,13,18,21 * * *'
       timezone: "Asia/Ho_Chi_Minh"
 
