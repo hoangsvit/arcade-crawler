@@ -62,6 +62,12 @@ Với GitHub Actions, vào **Settings → Secrets and variables → Actions → 
 repository secret**, tạo secret tên `FIREBASE_SERVICE_ACCOUNT_JSON` và dán toàn
 bộ nội dung file JSON vào giá trị của secret.
 
+## Lần chạy gần nhất
+
+<!-- LAST_RUN_START -->
+_Chưa có dữ liệu_
+<!-- LAST_RUN_END -->
+
 ## GitHub Actions
 
 Workflow `.github/workflows/update-arcade-milestones.yml` chạy mỗi ngày lúc
