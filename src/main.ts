@@ -37,6 +37,12 @@ type MonthlyArcadeGame = {
     joinUrl: string | null;
 };
 
+type MonthlyExtraction = {
+    games: MonthlyArcadeGame[];
+    candidateCount: number;
+    skippedCount: number;
+};
+
 function normalizeUrl(value: string | null, baseUrl: string): string | null {
     if (!value) return null;
 
@@ -152,8 +158,13 @@ const crawler = new PlaywrightCrawler({
         let matchingFrameUrl: string | undefined;
         let spotsLeft: Array<number | null> | undefined;
         let monthlyGames: MonthlyArcadeGame[] = [];
+        let monthlyCandidateCount = 0;
+        let monthlySkippedCount = 0;
 
-        while (Date.now() < timeoutAt && (!spotsLeft || monthlyGames.length === 0)) {
+        while (
+            Date.now() < timeoutAt
+            && (!spotsLeft || (monthlyGames.length === 0 && monthlyCandidateCount === 0))
+        ) {
             for (const frame of page.frames()) {
                 try {
                     if (!spotsLeft) {
@@ -173,15 +184,17 @@ const crawler = new PlaywrightCrawler({
                         }
                     }
 
-                    if (monthlyGames.length === 0) {
+                    if (monthlyGames.length === 0 && monthlyCandidateCount === 0) {
                         const extracted = await frame.locator('body').evaluate((body) => {
                             const clean = (value: string | null | undefined) =>
                                 (value ?? '').replace(/\s+/g, ' ').trim();
                             const accessCodePattern = /\b(?=[a-z0-9-]*[a-z])(?=[a-z0-9-]*\d)[a-z0-9]+(?:-[a-z0-9]+)+\b/i;
-
-                            return Array.from(
+                            const candidates = Array.from(
                                 body.querySelectorAll<HTMLElement>('.shuffle-item'),
-                            ).map((card) => {
+                            );
+                            let skippedCount = 0;
+
+                            const games = candidates.map((card) => {
                                 const text = clean(card.textContent);
                                 const startLink = Array.from(
                                     card.querySelectorAll<HTMLAnchorElement>('a[href]'),
@@ -195,15 +208,16 @@ const crawler = new PlaywrightCrawler({
                                 const pointsMatch = text.match(
                                     /Arcade\s*points?\s*:\s*(\d+)/i,
                                 );
-
-                                if (!startLink || !accessCode || !pointsMatch) {
-                                    return null;
-                                }
-
                                 const heading = card.querySelector<HTMLElement>(
                                     'h1.card-title, h2.card-title, h3.card-title, h4.card-title, h5.card-title, h6.card-title, h1, h2, h3, h4, h5, h6',
                                 );
                                 const title = clean(heading?.textContent);
+
+                                if (!startLink || !accessCode || !pointsMatch || !title) {
+                                    if (startLink || accessCode || pointsMatch) skippedCount += 1;
+                                    return null;
+                                }
+
                                 const imageUrl = card.querySelector<HTMLImageElement>(
                                     'img.card-img-top[src], img[src]',
                                 )?.src ?? null;
@@ -226,14 +240,24 @@ const crawler = new PlaywrightCrawler({
                                 deadline: string | null;
                                 points: number;
                                 joinUrl: string;
-                            } => Boolean(game?.title));
-                        });
+                            } => game !== null);
 
-                        monthlyGames.push(...extracted.map((game) => ({
-                            ...game,
-                            imageUrl: normalizeUrl(game.imageUrl, frame.url()),
-                            joinUrl: normalizeUrl(game.joinUrl, frame.url()),
-                        })));
+                            return {
+                                games,
+                                candidateCount: candidates.length,
+                                skippedCount,
+                            };
+                        }) as MonthlyExtraction;
+
+                        if (extracted.candidateCount > 0) {
+                            monthlyCandidateCount += extracted.candidateCount;
+                            monthlySkippedCount += extracted.skippedCount;
+                            monthlyGames.push(...extracted.games.map((game) => ({
+                                ...game,
+                                imageUrl: normalizeUrl(game.imageUrl, frame.url()),
+                                joinUrl: normalizeUrl(game.joinUrl, frame.url()),
+                            })));
+                        }
                     }
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
@@ -247,17 +271,31 @@ const crawler = new PlaywrightCrawler({
                 }
             }
 
-            if (!spotsLeft || monthlyGames.length === 0) await sleep(1_000);
+            if (!spotsLeft || (monthlyGames.length === 0 && monthlyCandidateCount === 0)) {
+                await sleep(1_000);
+            }
         }
 
         if (!spotsLeft) {
-            throw new Error(`Không tìm thấy ${TIER_POINTS_SELECTOR}. URL: ${page.url()}`);
+            await mkdir('storage', { recursive: true });
+            const title = await page.title();
+            const bodyText = ((await page.locator('body').textContent()) ?? '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 2_000);
+            await page.screenshot({
+                path: 'storage/arcade-selector-not-found.png',
+                fullPage: true,
+            });
+
+            throw new Error(
+                `Không tìm thấy ${TIER_POINTS_SELECTOR}. `
+                + `URL: ${page.url()}; title: ${title}; body: ${bodyText}; `
+                + 'screenshot: storage/arcade-selector-not-found.png',
+            );
         }
         if (spotsLeft.length !== TIERS.length || spotsLeft.some((value) => value === null)) {
             throw new Error(`Dữ liệu tier không hợp lệ: ${JSON.stringify(spotsLeft)}`);
-        }
-        if (monthlyGames.length === 0) {
-            throw new Error('Không tìm thấy danh sách game Arcade tháng hiện tại.');
         }
 
         monthlyGames = Array.from(
@@ -273,10 +311,27 @@ const crawler = new PlaywrightCrawler({
         }));
 
         await mkdir('data', { recursive: true });
-        await Promise.all([
-            writeFile(MILESTONES_FILE, `${JSON.stringify(milestones, null, 2)}\n`, 'utf8'),
-            writeFile(MONTHLY_GAMES_FILE, `${JSON.stringify(monthlyGames, null, 2)}\n`, 'utf8'),
-        ]);
+        await writeFile(
+            MILESTONES_FILE,
+            `${JSON.stringify(milestones, null, 2)}\n`,
+            'utf8',
+        );
+
+        if (monthlyGames.length > 0) {
+            await writeFile(
+                MONTHLY_GAMES_FILE,
+                `${JSON.stringify(monthlyGames, null, 2)}\n`,
+                'utf8',
+            );
+        } else {
+            log.warning(
+                'Monthly Arcade games were not extracted; keeping the previous monthly data file.',
+                {
+                    candidateCount: monthlyCandidateCount,
+                    skippedCount: monthlySkippedCount,
+                },
+            );
+        }
 
         const publishedTemplate = SHOULD_PUBLISH_REMOTE_CONFIG
             ? await publishToRemoteConfig(milestones)
@@ -287,9 +342,14 @@ const crawler = new PlaywrightCrawler({
             frameUrl: matchingFrameUrl,
             milestones,
             monthlyGames,
+            monthlyExtraction: {
+                found: monthlyGames.length > 0,
+                candidateCount: monthlyCandidateCount,
+                skippedCount: monthlySkippedCount,
+            },
             files: {
                 milestones: MILESTONES_FILE,
-                monthlyGames: MONTHLY_GAMES_FILE,
+                monthlyGames: monthlyGames.length > 0 ? MONTHLY_GAMES_FILE : null,
             },
             remoteConfig: {
                 published: SHOULD_PUBLISH_REMOTE_CONFIG,
@@ -304,6 +364,8 @@ const crawler = new PlaywrightCrawler({
             url: request.loadedUrl,
             milestoneCount: milestones.length,
             monthlyGameCount: monthlyGames.length,
+            monthlyCandidateCount,
+            monthlySkippedCount,
             published: SHOULD_PUBLISH_REMOTE_CONFIG,
             changed: publishedTemplate?.changed ?? false,
         });
