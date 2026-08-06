@@ -178,61 +178,55 @@ const crawler = new PlaywrightCrawler({
                             const clean = (value: string | null | undefined) =>
                                 (value ?? '').replace(/\s+/g, ' ').trim();
                             const accessCodePattern = /\b(?=[a-z0-9-]*[a-z])(?=[a-z0-9-]*\d)[a-z0-9]+(?:-[a-z0-9]+)+\b/i;
-                            const actions = Array.from(body.querySelectorAll<HTMLElement>('a, button'))
-                                .filter((item) => /Start Learning/i.test(clean(item.textContent)));
-                            const cards: HTMLElement[] = [];
 
-                            for (const action of actions) {
-                                let card: HTMLElement | null = action;
-                                while (card && card !== body) {
-                                    const text = clean(card.textContent);
-                                    if (
-                                        /Deadline\s*:/i.test(text)
-                                        && /Arcade\s*Point(?:s)?\s*:/i.test(text)
-                                        && text.length < 2_500
-                                    ) {
-                                        cards.push(card);
-                                        break;
-                                    }
-                                    card = card.parentElement;
-                                }
-                            }
-
-                            return Array.from(new Set(cards)).map((card) => {
+                            return Array.from(
+                                body.querySelectorAll<HTMLElement>('.shuffle-item'),
+                            ).map((card) => {
                                 const text = clean(card.textContent);
-                                const heading = card.querySelector<HTMLElement>('h1, h2, h3, h4, h5, h6');
-                                const title = clean(heading?.textContent);
-                                const codeElement = Array.from(
-                                    card.querySelectorAll<HTMLElement>('code, pre, input, [data-code], [class*="code"]'),
-                                ).find((element) => {
-                                    const value = element instanceof HTMLInputElement
-                                        ? element.value
-                                        : element.textContent;
-                                    return accessCodePattern.test(clean(value));
-                                });
-                                const codeText = codeElement instanceof HTMLInputElement
-                                    ? codeElement.value
-                                    : codeElement?.textContent;
-                                const accessCode = clean(codeText).match(accessCodePattern)?.[0] ?? null;
-                                const deadline = text.match(
-                                    /Deadline\s*:\s*(.*?)(?=Arcade\s*Point|Start Learning|$)/i,
-                                )?.[1]?.trim() ?? null;
-                                const pointsMatch = text.match(
-                                    /Arcade\s*Point(?:s)?\s*:\s*(\d+)/i,
+                                const startLink = Array.from(
+                                    card.querySelectorAll<HTMLAnchorElement>('a[href]'),
+                                ).find((anchor) =>
+                                    Array.from(anchor.querySelectorAll('button'))
+                                        .some((button) => /^START!?$/i.test(clean(button.textContent))),
                                 );
-                                const joinUrl = Array.from(card.querySelectorAll<HTMLAnchorElement>('a[href]'))
-                                    .find((item) => /Start Learning/i.test(clean(item.textContent)))?.href ?? null;
-                                const imageUrl = card.querySelector<HTMLImageElement>('img[src]')?.src ?? null;
+                                const accessCode = text.match(
+                                    /Access\s*code\s*:\s*([a-z0-9-]+)/i,
+                                )?.[1]?.match(accessCodePattern)?.[0] ?? null;
+                                const pointsMatch = text.match(
+                                    /Arcade\s*points?\s*:\s*(\d+)/i,
+                                );
+
+                                if (!startLink || !accessCode || !pointsMatch) {
+                                    return null;
+                                }
+
+                                const heading = card.querySelector<HTMLElement>(
+                                    'h1.card-title, h2.card-title, h3.card-title, h4.card-title, h5.card-title, h6.card-title, h1, h2, h3, h4, h5, h6',
+                                );
+                                const title = clean(heading?.textContent);
+                                const imageUrl = card.querySelector<HTMLImageElement>(
+                                    'img.card-img-top[src], img[src]',
+                                )?.src ?? null;
+                                const deadline = text.match(
+                                    /Deadline\s*:\s*(.*?)(?=Access\s*code|Arcade\s*points?|START!?|$)/i,
+                                )?.[1]?.trim() ?? null;
 
                                 return {
                                     title,
                                     imageUrl,
                                     accessCode,
                                     deadline,
-                                    points: pointsMatch ? Number(pointsMatch[1]) : null,
-                                    joinUrl,
+                                    points: Number(pointsMatch[1]),
+                                    joinUrl: startLink.href,
                                 };
-                            }).filter((game) => game.title);
+                            }).filter((game): game is {
+                                title: string;
+                                imageUrl: string | null;
+                                accessCode: string;
+                                deadline: string | null;
+                                points: number;
+                                joinUrl: string;
+                            } => Boolean(game?.title));
                         });
 
                         monthlyGames.push(...extracted.map((game) => ({
@@ -263,12 +257,12 @@ const crawler = new PlaywrightCrawler({
             throw new Error(`Dữ liệu tier không hợp lệ: ${JSON.stringify(spotsLeft)}`);
         }
         if (monthlyGames.length === 0) {
-            throw new Error('Không tìm thấy danh sách lab Arcade tháng hiện tại.');
+            throw new Error('Không tìm thấy danh sách game Arcade tháng hiện tại.');
         }
 
         monthlyGames = Array.from(
             new Map(monthlyGames.map((game) => [
-                `${game.title}|${game.accessCode ?? ''}|${game.deadline ?? ''}`,
+                `${game.title}|${game.accessCode ?? ''}`,
                 game,
             ])).values(),
         );
