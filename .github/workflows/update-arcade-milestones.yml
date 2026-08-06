@@ -1,4 +1,4 @@
-name: Update Arcade milestones
+name: Update Arcade data
 
 on:
   workflow_dispatch:
@@ -8,6 +8,7 @@ on:
       - main
     paths-ignore:
       - "data/arcade_milestones.json"
+      - "data/arcade_monthly_games.json"
 
   schedule:
     - cron: '0 */6 * * *'
@@ -19,7 +20,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
       FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
@@ -42,8 +43,11 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Crawl and publish Remote Config
+      - name: Crawl milestones and publish Remote Config
         run: npm start
+
+      - name: Crawl monthly Arcade catalog
+        run: npm run crawl:monthly
 
       - name: Update README last run time
         run: |
@@ -68,21 +72,24 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          DATA_CHANGED=false
+          MILESTONES_CHANGED=false
+          MONTHLY_CHANGED=false
           README_CHANGED=false
-          git diff --quiet -- data/arcade_milestones.json || DATA_CHANGED=true
+          git diff --quiet -- data/arcade_milestones.json || MILESTONES_CHANGED=true
+          git diff --quiet -- data/arcade_monthly_games.json || MONTHLY_CHANGED=true
           git diff --quiet -- README.md || README_CHANGED=true
 
-          if [ "$DATA_CHANGED" = "false" ] && [ "$README_CHANGED" = "false" ]; then
+          if [ "$MILESTONES_CHANGED" = "false" ] && [ "$MONTHLY_CHANGED" = "false" ] && [ "$README_CHANGED" = "false" ]; then
             echo "Nothing changed; commit skipped."
             exit 0
           fi
 
-          [ "$DATA_CHANGED" = "true" ] && git add data/arcade_milestones.json
+          [ "$MILESTONES_CHANGED" = "true" ] && git add data/arcade_milestones.json
+          [ "$MONTHLY_CHANGED" = "true" ] && git add data/arcade_monthly_games.json
           [ "$README_CHANGED" = "true" ] && git add README.md
 
-          if [ "$DATA_CHANGED" = "true" ]; then
-            git commit -m "chore: update Arcade milestones"
+          if [ "$MILESTONES_CHANGED" = "true" ] || [ "$MONTHLY_CHANGED" = "true" ]; then
+            git commit -m "chore: update Arcade data"
           else
             git commit -m "chore: update last run time"
           fi
