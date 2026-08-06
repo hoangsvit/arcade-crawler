@@ -57,28 +57,49 @@ const crawler = new PlaywrightCrawler({
                     const extracted = await frame.locator('body').evaluate((body) => {
                         const clean = (value: string | null | undefined) =>
                             (value ?? '').replace(/\s+/g, ' ').trim();
-                        const cards = Array.from(body.querySelectorAll<HTMLElement>('*'))
-                            .filter((element) => {
-                                const text = clean(element.textContent);
-                                const hasStartButton = Array.from(element.querySelectorAll('a, button'))
-                                    .some((item) => /Start Learning/i.test(clean(item.textContent)));
-                                return hasStartButton
-                                    && /Deadline\s*:/i.test(text)
-                                    && /Arcade\s*Point(?:s)?\s*:/i.test(text)
-                                    && text.length < 2_500;
-                            })
-                            .sort((a, b) => clean(a.textContent).length - clean(b.textContent).length);
+                        const accessCodePattern = /\b(?=[a-z0-9-]*[a-z])(?=[a-z0-9-]*\d)[a-z0-9]+(?:-[a-z0-9]+)+\b/i;
+                        const actions = Array.from(body.querySelectorAll<HTMLElement>('a, button'))
+                            .filter((item) => /Start Learning/i.test(clean(item.textContent)));
+                        const cards: HTMLElement[] = [];
 
-                        return cards.map((card) => {
+                        for (const action of actions) {
+                            let card: HTMLElement | null = action;
+
+                            while (card && card !== body) {
+                                const text = clean(card.textContent);
+                                if (
+                                    /Deadline\s*:/i.test(text)
+                                    && /Arcade\s*Point(?:s)?\s*:/i.test(text)
+                                    && text.length < 2_500
+                                ) {
+                                    cards.push(card);
+                                    break;
+                                }
+                                card = card.parentElement;
+                            }
+                        }
+
+                        return Array.from(new Set(cards)).map((card) => {
                             const text = clean(card.textContent);
                             const heading = card.querySelector<HTMLElement>('h1, h2, h3, h4, h5, h6');
                             const title = clean(heading?.textContent);
-                            const accessCode = text.match(/\b[0-9a-z]+-[0-9a-z-]+\b/i)?.[0] ?? null;
+                            const codeElement = Array.from(
+                                card.querySelectorAll<HTMLElement>('code, pre, input, [data-code], [class*="code"]'),
+                            ).find((element) => {
+                                const value = element instanceof HTMLInputElement
+                                    ? element.value
+                                    : element.textContent;
+                                return accessCodePattern.test(clean(value));
+                            });
+                            const codeText = codeElement instanceof HTMLInputElement
+                                ? codeElement.value
+                                : codeElement?.textContent;
+                            const accessCode = clean(codeText).match(accessCodePattern)?.[0] ?? null;
                             const deadline = text.match(
                                 /Deadline\s*:\s*(.*?)(?=Arcade\s*Point|Start Learning|$)/i,
                             )?.[1]?.trim() ?? null;
-                            const points = Number(
-                                text.match(/Arcade\s*Point(?:s)?\s*:\s*(\d+)/i)?.[1] ?? '',
+                            const pointsMatch = text.match(
+                                /Arcade\s*Point(?:s)?\s*:\s*(\d+)/i,
                             );
                             const joinUrl = Array.from(card.querySelectorAll<HTMLAnchorElement>('a[href]'))
                                 .find((item) => /Start Learning/i.test(clean(item.textContent)))?.href ?? null;
@@ -89,7 +110,7 @@ const crawler = new PlaywrightCrawler({
                                 imageUrl,
                                 accessCode,
                                 deadline,
-                                points: Number.isFinite(points) ? points : null,
+                                points: pointsMatch ? Number(pointsMatch[1]) : null,
                                 joinUrl,
                             };
                         }).filter((game) => game.title);
