@@ -96,7 +96,7 @@ test('monthly extraction does not depend on month or game names', async () => {
     });
 });
 
-test('game detail extraction gets the canonical title and spots remaining', async () => {
+test('game detail extraction gets canonical title, deadline, and spots remaining', async () => {
     const gameDetailHtml = `
         <div id="jump-content">
             <div class="game__title">
@@ -123,6 +123,7 @@ test('game detail extraction gets the canonical title and spots remaining', asyn
         assert.deepEqual(details, {
             title: 'Arcade Base Camp August 2026',
             spotsRemaining: 1472,
+            deadline: '2026-08-31T17:29:31.000Z',
         });
     });
 });
@@ -155,6 +156,7 @@ test('missing game detail data does not affect tier extraction', async () => {
         assert.deepEqual(details, {
             title: null,
             spotsRemaining: null,
+            deadline: null,
         });
     });
 });
