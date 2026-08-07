@@ -4,6 +4,7 @@ export const TIER_POINTS_SELECTOR = '.tier-points';
 export const MONTHLY_CARD_SELECTOR = '.shuffle-item';
 export const GAME_TITLE_SELECTOR = '#jump-content .game__title h1';
 export const GAME_DETAILS_SELECTOR = '#jump-content .game__details';
+export const GAME_DATETIME_SELECTOR = '#jump-content .game__details ql-datetime[millisecondssinceepoch]';
 
 export type MonthlyArcadeGame = {
     title: string;
@@ -18,6 +19,7 @@ export type MonthlyArcadeGame = {
 export type ArcadeGameDetails = {
     title: string | null;
     spotsRemaining: number | null;
+    deadline: string | null;
 };
 
 export function cleanText(value: string | null | undefined): string {
@@ -90,6 +92,8 @@ export async function extractMonthlyGames(frame: Frame) {
 export async function extractGameDetails(page: Page): Promise<ArcadeGameDetails> {
     const titleLocator = page.locator(GAME_TITLE_SELECTOR).first();
     const detailsLocator = page.locator(GAME_DETAILS_SELECTOR).first();
+    const dateTimeLocators = page.locator(GAME_DATETIME_SELECTOR);
+
     const title = await titleLocator.count() > 0
         ? cleanText(await titleLocator.textContent())
         : '';
@@ -98,8 +102,19 @@ export async function extractGameDetails(page: Page): Promise<ArcadeGameDetails>
         : '';
     const spotsMatch = detailsText.match(/([\d,]+)\s+spots?\s+remaining/i);
 
+    let deadline: string | null = null;
+    const dateTimeCount = await dateTimeLocators.count();
+    if (dateTimeCount >= 2) {
+        const rawDeadline = await dateTimeLocators.nth(1).getAttribute('millisecondssinceepoch');
+        const deadlineMs = rawDeadline ? Number(rawDeadline) : Number.NaN;
+        if (Number.isFinite(deadlineMs)) {
+            deadline = new Date(deadlineMs).toISOString();
+        }
+    }
+
     return {
         title: title || null,
         spotsRemaining: spotsMatch ? Number(spotsMatch[1].replace(/,/g, '')) : null,
+        deadline,
     };
 }
