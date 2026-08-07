@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chromium, type Page } from 'playwright';
 import {
+    ARCADE_TIME_ZONE,
     extractGameDetails,
     extractMonthlyGames,
     extractTierSpots,
@@ -101,10 +102,11 @@ test('monthly extraction does not depend on month or game names and normalizes j
         assert.ok(result.games.every((game) => game.points === 1));
         assert.ok(result.games.every((game) => game.spotsRemaining === null));
         assert.ok(result.games.every((game) => game.description === null));
+        assert.ok(result.games.every((game) => game.deadlineTimeZone === ARCADE_TIME_ZONE));
     });
 });
 
-test('game detail extraction gets canonical title, deadline, description, and spots remaining', async () => {
+test('game detail extraction keeps canonical UTC instant for countdowns', async () => {
     const gameDetailHtml = `
         <div id="jump-content">
             <div class="game__title">
@@ -137,6 +139,17 @@ test('game detail extraction gets canonical title, deadline, description, and sp
             deadline: '2026-08-31T17:29:31.000Z',
             description: 'Welcome to Base Camp, where you’ll develop key Google Cloud skills and earn an exclusive credential.',
         });
+
+        const formattedDeadline = new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: ARCADE_TIME_ZONE,
+        }).format(new Date(details.deadline!));
+
+        assert.equal(formattedDeadline, 'Aug 31, 2026, 10:59 PM');
     });
 });
 
