@@ -186,8 +186,6 @@ const crawler = new PlaywrightCrawler({
 
                     if (monthlyGames.length === 0 && monthlyCandidateCount === 0) {
                         const extracted = await frame.locator('body').evaluate((body) => {
-                            const clean = (value: string | null | undefined) =>
-                                (value ?? '').replace(/\s+/g, ' ').trim();
                             const accessCodePattern = /\b(?=[a-z0-9-]*[a-z])(?=[a-z0-9-]*\d)[a-z0-9]+(?:-[a-z0-9]+)+\b/i;
                             const candidates = Array.from(
                                 body.querySelectorAll<HTMLElement>('.shuffle-item'),
@@ -195,12 +193,18 @@ const crawler = new PlaywrightCrawler({
                             let skippedCount = 0;
 
                             const games = candidates.map((card) => {
-                                const text = clean(card.textContent);
+                                const text = (card.textContent ?? '')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
                                 const startLink = Array.from(
                                     card.querySelectorAll<HTMLAnchorElement>('a[href]'),
                                 ).find((anchor) =>
                                     Array.from(anchor.querySelectorAll('button'))
-                                        .some((button) => /^START!?$/i.test(clean(button.textContent))),
+                                        .some((button) => /^START!?$/i.test(
+                                            (button.textContent ?? '')
+                                                .replace(/\s+/g, ' ')
+                                                .trim(),
+                                        )),
                                 );
                                 const accessCode = text.match(
                                     /Access\s*code\s*:\s*([a-z0-9-]+)/i,
@@ -211,7 +215,9 @@ const crawler = new PlaywrightCrawler({
                                 const heading = card.querySelector<HTMLElement>(
                                     'h1.card-title, h2.card-title, h3.card-title, h4.card-title, h5.card-title, h6.card-title, h1, h2, h3, h4, h5, h6',
                                 );
-                                const title = clean(heading?.textContent);
+                                const title = (heading?.textContent ?? '')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
 
                                 if (!startLink || !accessCode || !pointsMatch || !title) {
                                     if (startLink || accessCode || pointsMatch) skippedCount += 1;
