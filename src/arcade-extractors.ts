@@ -39,6 +39,20 @@ export function normalizeUrl(value: string | null, baseUrl: string): string | nu
     }
 }
 
+export function normalizeGameJoinUrl(value: string | null, baseUrl: string): string | null {
+    if (!value) return null;
+
+    try {
+        const url = new URL(value, baseUrl);
+        const gameMatch = url.pathname.match(/^\/games\/(\d+)\/?$/);
+        if (!gameMatch || url.hostname !== 'www.skills.google') return null;
+
+        return `https://www.skills.google/games/${gameMatch[1]}?utm_source=hoangsvit`;
+    } catch {
+        return null;
+    }
+}
+
 export async function extractTierSpots(frame: Frame): Promise<Array<number | null>> {
     const texts = await frame.locator(TIER_POINTS_SELECTOR).allTextContents();
     return texts.map((text) => {
@@ -70,7 +84,8 @@ export async function extractMonthlyGames(frame: Frame) {
             }
         }
 
-        if (!title || !accessCode || !pointsMatch || !joinUrl) {
+        const normalizedJoinUrl = normalizeGameJoinUrl(joinUrl, frame.url());
+        if (!title || !accessCode || !pointsMatch || !normalizedJoinUrl) {
             if (title || accessCode || pointsMatch || joinUrl) skippedCount += 1;
             continue;
         }
@@ -85,7 +100,7 @@ export async function extractMonthlyGames(frame: Frame) {
             deadline,
             description: null,
             points: Number(pointsMatch[1]),
-            joinUrl: normalizeUrl(joinUrl, frame.url()),
+            joinUrl: normalizedJoinUrl,
             spotsRemaining: null,
         });
     }
