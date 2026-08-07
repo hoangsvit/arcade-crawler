@@ -1,7 +1,9 @@
-import type { Frame } from 'playwright';
+import type { Frame, Page } from 'playwright';
 
 export const TIER_POINTS_SELECTOR = '.tier-points';
 export const MONTHLY_CARD_SELECTOR = '.shuffle-item';
+export const GAME_TITLE_SELECTOR = '#jump-content .game__title h1';
+export const GAME_DETAILS_SELECTOR = '#jump-content .game__details';
 
 export type MonthlyArcadeGame = {
     title: string;
@@ -10,6 +12,12 @@ export type MonthlyArcadeGame = {
     deadline: string | null;
     points: number | null;
     joinUrl: string | null;
+    spotsRemaining: number | null;
+};
+
+export type ArcadeGameDetails = {
+    title: string | null;
+    spotsRemaining: number | null;
 };
 
 export function cleanText(value: string | null | undefined): string {
@@ -72,8 +80,20 @@ export async function extractMonthlyGames(frame: Frame) {
             deadline,
             points: Number(pointsMatch[1]),
             joinUrl: normalizeUrl(joinUrl, frame.url()),
+            spotsRemaining: null,
         });
     }
 
     return { games, candidateCount, skippedCount };
+}
+
+export async function extractGameDetails(page: Page): Promise<ArcadeGameDetails> {
+    const title = cleanText(await page.locator(GAME_TITLE_SELECTOR).first().textContent());
+    const detailsText = cleanText(await page.locator(GAME_DETAILS_SELECTOR).first().textContent());
+    const spotsMatch = detailsText.match(/([\d,]+)\s+spots?\s+remaining/i);
+
+    return {
+        title: title || null,
+        spotsRemaining: spotsMatch ? Number(spotsMatch[1].replace(/,/g, '')) : null,
+    };
 }
