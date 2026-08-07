@@ -13,6 +13,7 @@ import { getRemoteConfig } from 'firebase-admin/remote-config';
 
 const START_URL = 'https://go.cloudskillsboost.google/arcade';
 const TIER_POINTS_SELECTOR = '.tier-points';
+const MONTHLY_CARD_SELECTOR = '.shuffle-item';
 const SELECTOR_TIMEOUT_MS = 90_000;
 const REMOTE_CONFIG_PARAMETER_KEY =
     process.env.FIREBASE_REMOTE_CONFIG_KEY ?? 'arcade_milestones';
@@ -37,12 +38,6 @@ type MonthlyArcadeGame = {
     joinUrl: string | null;
 };
 
-type MonthlyExtraction = {
-    games: MonthlyArcadeGame[];
-    candidateCount: number;
-    skippedCount: number;
-};
-
 function normalizeUrl(value: string | null, baseUrl: string): string | null {
     if (!value) return null;
 
@@ -54,6 +49,10 @@ function normalizeUrl(value: string | null, baseUrl: string): string | null {
     } catch {
         return null;
     }
+}
+
+function cleanText(value: string | null | undefined): string {
+    return (value ?? '').replace(/\s+/g, ' ').trim();
 }
 
 function initializeFirebase() {
@@ -168,101 +167,86 @@ const crawler = new PlaywrightCrawler({
             for (const frame of page.frames()) {
                 try {
                     if (!spotsLeft) {
-                        const values = await frame.locator(TIER_POINTS_SELECTOR).evaluateAll((elements) =>
-                            elements.map((element) => {
-                                const text = (element.textContent ?? '').trim();
-                                const firstNumber = text.match(/\d[\d,]*/)?.[0];
+                        const tierTexts = await frame
+                            .locator(TIER_POINTS_SELECTOR)
+                            .allTextContents();
+
+                        if (tierTexts.length > 0) {
+                            matchingFrameUrl = frame.url();
+                            spotsLeft = tierTexts.map((text) => {
+                                const firstNumber = cleanText(text).match(/\d[\d,]*/)?.[0];
                                 return firstNumber
                                     ? Number(firstNumber.replace(/,/g, ''))
                                     : null;
-                            }),
-                        );
-
-                        if (values.length > 0) {
-                            matchingFrameUrl = frame.url();
-                            spotsLeft = values;
+                            });
                         }
                     }
 
                     if (monthlyGames.length === 0 && monthlyCandidateCount === 0) {
-                        const extracted = await frame.locator('body').evaluate((body) => {
-                            const accessCodePattern = /\b(?=[a-z0-9-]*[a-z])(?=[a-z0-9-]*\d)[a-z0-9]+(?:-[a-z0-9]+)+\b/i;
-                            const candidates = Array.from(
-                                body.querySelectorAll<HTMLElement>('.shuffle-item'),
-                            );
+                        const cards = frame.locator(MONTHLY_CARD_SELECTOR);
+                        const candidateCount = await cards.count();
+
+                        if (candidateCount > 0) {
+                            const extractedGames: MonthlyArcadeGame[] = [];
                             let skippedCount = 0;
 
-                            const games = candidates.map((card) => {
-                                const text = (card.textContent ?? '')
-                                    .replace(/\s+/g, ' ')
-                                    .trim();
-                                const startLink = Array.from(
-                                    card.querySelectorAll<HTMLAnchorElement>('a[href]'),
-                                ).find((anchor) =>
-                                    Array.from(anchor.querySelectorAll('button'))
-                                        .some((button) => /^START!?$/i.test(
-                                            (button.textContent ?? '')
-                                                .replace(/\s+/g, ' ')
-                                                .trim(),
-                                        )),
+                            for (let index = 0; index < candidateCount; index += 1) {
+                                const card = cards.nth(index);
+                                const text = cleanText(await card.textContent());
+                                const title = cleanText(
+                                    await card.locator('.card-title').first().textContent(),
                                 );
                                 const accessCode = text.match(
                                     /Access\s*code\s*:\s*([a-z0-9-]+)/i,
-                                )?.[1]?.match(accessCodePattern)?.[0] ?? null;
+                                )?.[1] ?? null;
                                 const pointsMatch = text.match(
                                     /Arcade\s*points?\s*:\s*(\d+)/i,
                                 );
-                                const heading = card.querySelector<HTMLElement>(
-                                    'h1.card-title, h2.card-title, h3.card-title, h4.card-title, h5.card-title, h6.card-title, h1, h2, h3, h4, h5, h6',
-                                );
-                                const title = (heading?.textContent ?? '')
-                                    .replace(/\s+/g, ' ')
-                                    .trim();
 
-                                if (!startLink || !accessCode || !pointsMatch || !title) {
-                                    if (startLink || accessCode || pointsMatch) skippedCount += 1;
-                                    return null;
+                                const startButtons = card.locator('a[href] > button');
+                                const startButtonCount = await startButtons.count();
+                                let joinUrl: string | null = null;
+
+                                for (
+                                    let buttonIndex = 0;
+                                    buttonIndex < startButtonCount;
+                                    buttonIndex += 1
+                                ) {
+                                    const button = startButtons.nth(buttonIndex);
+                                    if (/^START!?$/i.test(cleanText(await button.textContent()))) {
+                                        joinUrl = await button.locator('..').getAttribute('href');
+                                        break;
+                                    }
                                 }
 
-                                const imageUrl = card.querySelector<HTMLImageElement>(
-                                    'img.card-img-top[src], img[src]',
-                                )?.src ?? null;
+                                if (!title || !accessCode || !pointsMatch || !joinUrl) {
+                                    if (title || accessCode || pointsMatch || joinUrl) {
+                                        skippedCount += 1;
+                                    }
+                                    continue;
+                                }
+
+                                const imageUrl = await card
+                                    .locator('img.card-img-top[src], img[src]')
+                                    .first()
+                                    .getAttribute('src');
                                 const deadline = text.match(
                                     /Deadline\s*:\s*(.*?)(?=Access\s*code|Arcade\s*points?|START!?|$)/i,
                                 )?.[1]?.trim() ?? null;
 
-                                return {
+                                extractedGames.push({
                                     title,
-                                    imageUrl,
+                                    imageUrl: normalizeUrl(imageUrl, frame.url()),
                                     accessCode,
                                     deadline,
                                     points: Number(pointsMatch[1]),
-                                    joinUrl: startLink.href,
-                                };
-                            }).filter((game): game is {
-                                title: string;
-                                imageUrl: string | null;
-                                accessCode: string;
-                                deadline: string | null;
-                                points: number;
-                                joinUrl: string;
-                            } => game !== null);
+                                    joinUrl: normalizeUrl(joinUrl, frame.url()),
+                                });
+                            }
 
-                            return {
-                                games,
-                                candidateCount: candidates.length,
-                                skippedCount,
-                            };
-                        }) as MonthlyExtraction;
-
-                        if (extracted.candidateCount > 0) {
-                            monthlyCandidateCount += extracted.candidateCount;
-                            monthlySkippedCount += extracted.skippedCount;
-                            monthlyGames.push(...extracted.games.map((game) => ({
-                                ...game,
-                                imageUrl: normalizeUrl(game.imageUrl, frame.url()),
-                                joinUrl: normalizeUrl(game.joinUrl, frame.url()),
-                            })));
+                            monthlyCandidateCount += candidateCount;
+                            monthlySkippedCount += skippedCount;
+                            monthlyGames.push(...extractedGames);
                         }
                     }
                 } catch (error) {
@@ -285,10 +269,7 @@ const crawler = new PlaywrightCrawler({
         if (!spotsLeft) {
             await mkdir('storage', { recursive: true });
             const title = await page.title();
-            const bodyText = ((await page.locator('body').textContent()) ?? '')
-                .replace(/\s+/g, ' ')
-                .trim()
-                .slice(0, 2_000);
+            const bodyText = cleanText(await page.locator('body').textContent()).slice(0, 2_000);
             await page.screenshot({
                 path: 'storage/arcade-selector-not-found.png',
                 fullPage: true,
