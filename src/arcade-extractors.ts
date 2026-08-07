@@ -88,8 +88,14 @@ export async function extractMonthlyGames(frame: Frame) {
 }
 
 export async function extractGameDetails(page: Page): Promise<ArcadeGameDetails> {
-    const title = cleanText(await page.locator(GAME_TITLE_SELECTOR).first().textContent());
-    const detailsText = cleanText(await page.locator(GAME_DETAILS_SELECTOR).first().textContent());
+    const titleLocator = page.locator(GAME_TITLE_SELECTOR).first();
+    const detailsLocator = page.locator(GAME_DETAILS_SELECTOR).first();
+    const title = await titleLocator.count() > 0
+        ? cleanText(await titleLocator.textContent())
+        : '';
+    const detailsText = await detailsLocator.count() > 0
+        ? cleanText(await detailsLocator.textContent())
+        : '';
     const spotsMatch = detailsText.match(/([\d,]+)\s+spots?\s+remaining/i);
 
     return {
