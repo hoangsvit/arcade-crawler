@@ -47,6 +47,9 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Test Arcade extractors
+        run: npm test
+
       - name: Crawl Arcade data and publish Remote Config
         run: npm start
 
