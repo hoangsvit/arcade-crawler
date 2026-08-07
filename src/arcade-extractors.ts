@@ -4,6 +4,7 @@ export const TIER_POINTS_SELECTOR = '.tier-points';
 export const MONTHLY_CARD_SELECTOR = '.shuffle-item';
 export const GAME_TITLE_SELECTOR = '#jump-content .game__title h1';
 export const GAME_DETAILS_SELECTOR = '#jump-content .game__details';
+export const GAME_DESCRIPTION_SELECTOR = '#jump-content .game__details p:not(.ql-title-medium)';
 export const GAME_DATETIME_SELECTOR = '#jump-content .game__details ql-datetime[millisecondssinceepoch]';
 
 export type MonthlyArcadeGame = {
@@ -11,6 +12,7 @@ export type MonthlyArcadeGame = {
     imageUrl: string | null;
     accessCode: string | null;
     deadline: string | null;
+    description: string | null;
     points: number | null;
     joinUrl: string | null;
     spotsRemaining: number | null;
@@ -20,6 +22,7 @@ export type ArcadeGameDetails = {
     title: string | null;
     spotsRemaining: number | null;
     deadline: string | null;
+    description: string | null;
 };
 
 export function cleanText(value: string | null | undefined): string {
@@ -80,6 +83,7 @@ export async function extractMonthlyGames(frame: Frame) {
             imageUrl: normalizeUrl(imageUrl, frame.url()),
             accessCode,
             deadline,
+            description: null,
             points: Number(pointsMatch[1]),
             joinUrl: normalizeUrl(joinUrl, frame.url()),
             spotsRemaining: null,
@@ -92,6 +96,7 @@ export async function extractMonthlyGames(frame: Frame) {
 export async function extractGameDetails(page: Page): Promise<ArcadeGameDetails> {
     const titleLocator = page.locator(GAME_TITLE_SELECTOR).first();
     const detailsLocator = page.locator(GAME_DETAILS_SELECTOR).first();
+    const descriptionLocator = page.locator(GAME_DESCRIPTION_SELECTOR).first();
     const dateTimeLocators = page.locator(GAME_DATETIME_SELECTOR);
 
     const title = await titleLocator.count() > 0
@@ -99,6 +104,9 @@ export async function extractGameDetails(page: Page): Promise<ArcadeGameDetails>
         : '';
     const detailsText = await detailsLocator.count() > 0
         ? cleanText(await detailsLocator.textContent())
+        : '';
+    const description = await descriptionLocator.count() > 0
+        ? cleanText(await descriptionLocator.textContent())
         : '';
     const spotsMatch = detailsText.match(/([\d,]+)\s+spots?\s+remaining/i);
 
@@ -116,5 +124,6 @@ export async function extractGameDetails(page: Page): Promise<ArcadeGameDetails>
         title: title || null,
         spotsRemaining: spotsMatch ? Number(spotsMatch[1].replace(/,/g, '')) : null,
         deadline,
+        description: description || null,
     };
 }
