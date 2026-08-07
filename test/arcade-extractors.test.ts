@@ -42,7 +42,7 @@ function monthlyCard(options: {
                 </a>
                 <p><span>Access code:</span> ${options.code}</p>
                 <p>Arcade points: ${options.points ?? 1}</p>
-                <a href="https://www.skills.google/games/${options.gameId}?utm_campaign=future-month">
+                <a href="https://www.skills.google/games/${options.gameId}?utm_source=googleskills&utm_medium=lp&utm_campaign=future-month&foo=bar">
                     <button>START!</button>
                 </a>
             </div>
@@ -50,7 +50,7 @@ function monthlyCard(options: {
     `;
 }
 
-test('monthly extraction does not depend on month or game names', async () => {
+test('monthly extraction does not depend on month or game names and normalizes join URLs', async () => {
     const futureMonthCards = [
         monthlyCard({
             title: 'Arcade Nebula September 2026',
@@ -90,10 +90,17 @@ test('monthly extraction does not depend on month or game names', async () => {
             result.games.map((game) => game.accessCode),
             ['1q-nebula-11111', '1q-cloudquest-22222', '1q-newgame-33333'],
         );
+        assert.deepEqual(
+            result.games.map((game) => game.joinUrl),
+            [
+                'https://www.skills.google/games/8101?utm_source=hoangsvit',
+                'https://www.skills.google/games/8102?utm_source=hoangsvit',
+                'https://www.skills.google/games/8103?utm_source=hoangsvit',
+            ],
+        );
         assert.ok(result.games.every((game) => game.points === 1));
         assert.ok(result.games.every((game) => game.spotsRemaining === null));
         assert.ok(result.games.every((game) => game.description === null));
-        assert.ok(result.games.every((game) => game.joinUrl?.startsWith('https://www.skills.google/games/')));
     });
 });
 
