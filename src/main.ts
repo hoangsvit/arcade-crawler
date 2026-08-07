@@ -238,6 +238,7 @@ const crawler = new PlaywrightCrawler({
                         monthlyGames[index] = {
                             ...game,
                             title: details.title ?? game.title,
+                            deadline: details.deadline ?? game.deadline,
                             spotsRemaining: details.spotsRemaining,
                         };
                     } catch (error) {
