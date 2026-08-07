@@ -12,6 +12,7 @@ import {
 import { getRemoteConfig } from 'firebase-admin/remote-config';
 import {
     cleanText,
+    extractGameDetails,
     extractMonthlyGames,
     extractTierSpots,
     TIER_POINTS_SELECTOR,
@@ -20,6 +21,7 @@ import {
 
 const START_URL = 'https://go.cloudskillsboost.google/arcade';
 const SELECTOR_TIMEOUT_MS = 90_000;
+const GAME_DETAIL_TIMEOUT_MS = 15_000;
 const REMOTE_CONFIG_PARAMETER_KEY =
     process.env.FIREBASE_REMOTE_CONFIG_KEY ?? 'arcade_milestones';
 const SHOULD_PUBLISH_REMOTE_CONFIG =
@@ -207,10 +209,49 @@ const crawler = new PlaywrightCrawler({
             spotsLeft: spotsLeft[index] as number,
         }));
 
+        // Tier data is critical. Persist and publish it before any optional game-detail enrichment.
         await mkdir('data', { recursive: true });
         await writeFile(MILESTONES_FILE, `${JSON.stringify(milestones, null, 2)}\n`, 'utf8');
 
+        const publishedTemplate = SHOULD_PUBLISH_REMOTE_CONFIG
+            ? await publishToRemoteConfig(milestones)
+            : undefined;
+
+        let monthlyDetailFailedCount = 0;
         if (monthlyGames.length > 0) {
+            const detailPage = await page.context().newPage();
+            try {
+                for (let index = 0; index < monthlyGames.length; index += 1) {
+                    const game = monthlyGames[index];
+                    if (!game.joinUrl) {
+                        monthlyDetailFailedCount += 1;
+                        continue;
+                    }
+
+                    try {
+                        await detailPage.goto(game.joinUrl, {
+                            waitUntil: 'domcontentloaded',
+                            timeout: GAME_DETAIL_TIMEOUT_MS,
+                        });
+
+                        const details = await extractGameDetails(detailPage);
+                        monthlyGames[index] = {
+                            ...game,
+                            title: details.title ?? game.title,
+                            spotsRemaining: details.spotsRemaining,
+                        };
+                    } catch (error) {
+                        monthlyDetailFailedCount += 1;
+                        log.warning('Arcade game detail enrichment failed; keeping card data.', {
+                            joinUrl: game.joinUrl,
+                            error: error instanceof Error ? error.message : String(error),
+                        });
+                    }
+                }
+            } finally {
+                await detailPage.close();
+            }
+
             await writeFile(
                 MONTHLY_GAMES_FILE,
                 `${JSON.stringify(monthlyGames, null, 2)}\n`,
@@ -226,10 +267,6 @@ const crawler = new PlaywrightCrawler({
             );
         }
 
-        const publishedTemplate = SHOULD_PUBLISH_REMOTE_CONFIG
-            ? await publishToRemoteConfig(milestones)
-            : undefined;
-
         await pushData({
             url: request.loadedUrl,
             frameUrl: matchingFrameUrl,
@@ -239,6 +276,7 @@ const crawler = new PlaywrightCrawler({
                 found: monthlyGames.length > 0,
                 candidateCount: monthlyCandidateCount,
                 skippedCount: monthlySkippedCount,
+                detailFailedCount: monthlyDetailFailedCount,
             },
             files: {
                 milestones: MILESTONES_FILE,
@@ -253,12 +291,13 @@ const crawler = new PlaywrightCrawler({
             },
         });
 
-        log.info('Arcade data collected from a single page load.', {
+        log.info('Arcade data collected.', {
             url: request.loadedUrl,
             milestoneCount: milestones.length,
             monthlyGameCount: monthlyGames.length,
             monthlyCandidateCount,
             monthlySkippedCount,
+            monthlyDetailFailedCount,
             published: SHOULD_PUBLISH_REMOTE_CONFIG,
             changed: publishedTemplate?.changed ?? false,
         });
