@@ -10,10 +10,18 @@ import {
     initializeApp,
 } from 'firebase-admin/app';
 import { getRemoteConfig } from 'firebase-admin/remote-config';
+import {
+    cleanText,
+    extractGameDetails,
+    extractMonthlyGames,
+    extractTierSpots,
+    TIER_POINTS_SELECTOR,
+    type MonthlyArcadeGame,
+} from './arcade-extractors.js';
 
 const START_URL = 'https://go.cloudskillsboost.google/arcade';
-const TIER_POINTS_SELECTOR = '.tier-points';
 const SELECTOR_TIMEOUT_MS = 90_000;
+const GAME_DETAIL_TIMEOUT_MS = 15_000;
 const REMOTE_CONFIG_PARAMETER_KEY =
     process.env.FIREBASE_REMOTE_CONFIG_KEY ?? 'arcade_milestones';
 const SHOULD_PUBLISH_REMOTE_CONFIG =
@@ -28,34 +36,6 @@ const TIERS = [
     { points: 120, league: 'Arcade Legend', slots: 2500 },
 ] as const;
 
-type MonthlyArcadeGame = {
-    title: string;
-    imageUrl: string | null;
-    accessCode: string | null;
-    deadline: string | null;
-    points: number | null;
-    joinUrl: string | null;
-};
-
-type MonthlyExtraction = {
-    games: MonthlyArcadeGame[];
-    candidateCount: number;
-    skippedCount: number;
-};
-
-function normalizeUrl(value: string | null, baseUrl: string): string | null {
-    if (!value) return null;
-
-    try {
-        const url = new URL(value, baseUrl);
-        return url.protocol === 'http:' || url.protocol === 'https:'
-            ? url.toString()
-            : null;
-    } catch {
-        return null;
-    }
-}
-
 function initializeFirebase() {
     if (getApps().length > 0) return getApp();
 
@@ -67,8 +47,7 @@ function initializeFirebase() {
             private_key: string;
         }
         : undefined;
-    const projectId =
-        process.env.FIREBASE_PROJECT_ID ?? rawServiceAccount?.project_id;
+    const projectId = process.env.FIREBASE_PROJECT_ID ?? rawServiceAccount?.project_id;
 
     return initializeApp({
         credential: rawServiceAccount
@@ -87,8 +66,7 @@ async function publishToRemoteConfig(data: unknown) {
     const remoteConfig = getRemoteConfig(app);
     const template = await remoteConfig.getTemplate();
     const nextValue = JSON.stringify(data);
-    const currentDefaultValue =
-        template.parameters[REMOTE_CONFIG_PARAMETER_KEY]?.defaultValue;
+    const currentDefaultValue = template.parameters[REMOTE_CONFIG_PARAMETER_KEY]?.defaultValue;
     const currentValue =
         currentDefaultValue && 'value' in currentDefaultValue
             ? currentDefaultValue.value
@@ -140,9 +118,9 @@ const crawler = new PlaywrightCrawler({
     errorHandler: async ({ request, session, log }, error) => {
         const message = error instanceof Error ? error.message : String(error);
         if (
-            message.includes('ERR_EMPTY_RESPONSE') ||
-            message.includes('ERR_CONNECTION_RESET') ||
-            message.includes('ERR_TIMED_OUT')
+            message.includes('ERR_EMPTY_RESPONSE')
+            || message.includes('ERR_CONNECTION_RESET')
+            || message.includes('ERR_TIMED_OUT')
         ) {
             session?.retire();
         }
@@ -168,16 +146,7 @@ const crawler = new PlaywrightCrawler({
             for (const frame of page.frames()) {
                 try {
                     if (!spotsLeft) {
-                        const values = await frame.locator(TIER_POINTS_SELECTOR).evaluateAll((elements) =>
-                            elements.map((element) => {
-                                const text = (element.textContent ?? '').trim();
-                                const firstNumber = text.match(/\d[\d,]*/)?.[0];
-                                return firstNumber
-                                    ? Number(firstNumber.replace(/,/g, ''))
-                                    : null;
-                            }),
-                        );
-
+                        const values = await extractTierSpots(frame);
                         if (values.length > 0) {
                             matchingFrameUrl = frame.url();
                             spotsLeft = values;
@@ -185,85 +154,18 @@ const crawler = new PlaywrightCrawler({
                     }
 
                     if (monthlyGames.length === 0 && monthlyCandidateCount === 0) {
-                        const extracted = await frame.locator('body').evaluate((body) => {
-                            const clean = (value: string | null | undefined) =>
-                                (value ?? '').replace(/\s+/g, ' ').trim();
-                            const accessCodePattern = /\b(?=[a-z0-9-]*[a-z])(?=[a-z0-9-]*\d)[a-z0-9]+(?:-[a-z0-9]+)+\b/i;
-                            const candidates = Array.from(
-                                body.querySelectorAll<HTMLElement>('.shuffle-item'),
-                            );
-                            let skippedCount = 0;
-
-                            const games = candidates.map((card) => {
-                                const text = clean(card.textContent);
-                                const startLink = Array.from(
-                                    card.querySelectorAll<HTMLAnchorElement>('a[href]'),
-                                ).find((anchor) =>
-                                    Array.from(anchor.querySelectorAll('button'))
-                                        .some((button) => /^START!?$/i.test(clean(button.textContent))),
-                                );
-                                const accessCode = text.match(
-                                    /Access\s*code\s*:\s*([a-z0-9-]+)/i,
-                                )?.[1]?.match(accessCodePattern)?.[0] ?? null;
-                                const pointsMatch = text.match(
-                                    /Arcade\s*points?\s*:\s*(\d+)/i,
-                                );
-                                const heading = card.querySelector<HTMLElement>(
-                                    'h1.card-title, h2.card-title, h3.card-title, h4.card-title, h5.card-title, h6.card-title, h1, h2, h3, h4, h5, h6',
-                                );
-                                const title = clean(heading?.textContent);
-
-                                if (!startLink || !accessCode || !pointsMatch || !title) {
-                                    if (startLink || accessCode || pointsMatch) skippedCount += 1;
-                                    return null;
-                                }
-
-                                const imageUrl = card.querySelector<HTMLImageElement>(
-                                    'img.card-img-top[src], img[src]',
-                                )?.src ?? null;
-                                const deadline = text.match(
-                                    /Deadline\s*:\s*(.*?)(?=Access\s*code|Arcade\s*points?|START!?|$)/i,
-                                )?.[1]?.trim() ?? null;
-
-                                return {
-                                    title,
-                                    imageUrl,
-                                    accessCode,
-                                    deadline,
-                                    points: Number(pointsMatch[1]),
-                                    joinUrl: startLink.href,
-                                };
-                            }).filter((game): game is {
-                                title: string;
-                                imageUrl: string | null;
-                                accessCode: string;
-                                deadline: string | null;
-                                points: number;
-                                joinUrl: string;
-                            } => game !== null);
-
-                            return {
-                                games,
-                                candidateCount: candidates.length,
-                                skippedCount,
-                            };
-                        }) as MonthlyExtraction;
-
+                        const extracted = await extractMonthlyGames(frame);
                         if (extracted.candidateCount > 0) {
                             monthlyCandidateCount += extracted.candidateCount;
                             monthlySkippedCount += extracted.skippedCount;
-                            monthlyGames.push(...extracted.games.map((game) => ({
-                                ...game,
-                                imageUrl: normalizeUrl(game.imageUrl, frame.url()),
-                                joinUrl: normalizeUrl(game.joinUrl, frame.url()),
-                            })));
+                            monthlyGames.push(...extracted.games);
                         }
                     }
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
                     if (
-                        message.includes('Frame was detached') ||
-                        message.includes('Execution context was destroyed')
+                        message.includes('Frame was detached')
+                        || message.includes('Execution context was destroyed')
                     ) {
                         continue;
                     }
@@ -279,10 +181,7 @@ const crawler = new PlaywrightCrawler({
         if (!spotsLeft) {
             await mkdir('storage', { recursive: true });
             const title = await page.title();
-            const bodyText = ((await page.locator('body').textContent()) ?? '')
-                .replace(/\s+/g, ' ')
-                .trim()
-                .slice(0, 2_000);
+            const bodyText = cleanText(await page.locator('body').textContent()).slice(0, 2_000);
             await page.screenshot({
                 path: 'storage/arcade-selector-not-found.png',
                 fullPage: true,
@@ -310,14 +209,51 @@ const crawler = new PlaywrightCrawler({
             spotsLeft: spotsLeft[index] as number,
         }));
 
+        // Tier data is critical. Persist and publish it before any optional game-detail enrichment.
         await mkdir('data', { recursive: true });
-        await writeFile(
-            MILESTONES_FILE,
-            `${JSON.stringify(milestones, null, 2)}\n`,
-            'utf8',
-        );
+        await writeFile(MILESTONES_FILE, `${JSON.stringify(milestones, null, 2)}\n`, 'utf8');
 
+        const publishedTemplate = SHOULD_PUBLISH_REMOTE_CONFIG
+            ? await publishToRemoteConfig(milestones)
+            : undefined;
+
+        let monthlyDetailFailedCount = 0;
         if (monthlyGames.length > 0) {
+            const detailPage = await page.context().newPage();
+            try {
+                for (let index = 0; index < monthlyGames.length; index += 1) {
+                    const game = monthlyGames[index];
+                    if (!game.joinUrl) {
+                        monthlyDetailFailedCount += 1;
+                        continue;
+                    }
+
+                    try {
+                        await detailPage.goto(game.joinUrl, {
+                            waitUntil: 'domcontentloaded',
+                            timeout: GAME_DETAIL_TIMEOUT_MS,
+                        });
+
+                        const details = await extractGameDetails(detailPage);
+                        monthlyGames[index] = {
+                            ...game,
+                            title: details.title ?? game.title,
+                            deadline: details.deadline ?? game.deadline,
+                            description: details.description ?? game.description,
+                            spotsRemaining: details.spotsRemaining,
+                        };
+                    } catch (error) {
+                        monthlyDetailFailedCount += 1;
+                        log.warning('Arcade game detail enrichment failed; keeping card data.', {
+                            joinUrl: game.joinUrl,
+                            error: error instanceof Error ? error.message : String(error),
+                        });
+                    }
+                }
+            } finally {
+                await detailPage.close();
+            }
+
             await writeFile(
                 MONTHLY_GAMES_FILE,
                 `${JSON.stringify(monthlyGames, null, 2)}\n`,
@@ -333,10 +269,6 @@ const crawler = new PlaywrightCrawler({
             );
         }
 
-        const publishedTemplate = SHOULD_PUBLISH_REMOTE_CONFIG
-            ? await publishToRemoteConfig(milestones)
-            : undefined;
-
         await pushData({
             url: request.loadedUrl,
             frameUrl: matchingFrameUrl,
@@ -346,6 +278,7 @@ const crawler = new PlaywrightCrawler({
                 found: monthlyGames.length > 0,
                 candidateCount: monthlyCandidateCount,
                 skippedCount: monthlySkippedCount,
+                detailFailedCount: monthlyDetailFailedCount,
             },
             files: {
                 milestones: MILESTONES_FILE,
@@ -360,12 +293,13 @@ const crawler = new PlaywrightCrawler({
             },
         });
 
-        log.info('Arcade data collected from a single page load.', {
+        log.info('Arcade data collected.', {
             url: request.loadedUrl,
             milestoneCount: milestones.length,
             monthlyGameCount: monthlyGames.length,
             monthlyCandidateCount,
             monthlySkippedCount,
+            monthlyDetailFailedCount,
             published: SHOULD_PUBLISH_REMOTE_CONFIG,
             changed: publishedTemplate?.changed ?? false,
         });
