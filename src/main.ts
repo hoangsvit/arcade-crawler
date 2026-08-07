@@ -239,6 +239,7 @@ const crawler = new PlaywrightCrawler({
                             ...game,
                             title: details.title ?? game.title,
                             deadline: details.deadline ?? game.deadline,
+                            description: details.description ?? game.description,
                             spotsRemaining: details.spotsRemaining,
                         };
                     } catch (error) {
