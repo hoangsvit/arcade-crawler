@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { chromium } from 'playwright';
+import { chromium, type Page } from 'playwright';
 import { extractMonthlyGames, extractTierSpots } from '../src/arcade-extractors.js';
 
-async function withPage(html: string, run: (page: Awaited<ReturnType<typeof createPage>>) => Promise<void>) {
+async function withPage(html: string, run: (page: Page) => Promise<void>) {
     const browser = await chromium.launch({ headless: true });
     try {
         const page = await browser.newPage();
@@ -12,11 +12,6 @@ async function withPage(html: string, run: (page: Awaited<ReturnType<typeof crea
     } finally {
         await browser.close();
     }
-}
-
-async function createPage() {
-    const browser = await chromium.launch({ headless: true });
-    return browser.newPage();
 }
 
 const tierHtml = `
