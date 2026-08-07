@@ -24,7 +24,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     env:
       FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
       FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
@@ -47,11 +47,8 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Crawl milestones and publish Remote Config
+      - name: Crawl Arcade data and publish Remote Config
         run: npm start
-
-      - name: Crawl monthly Arcade catalog
-        run: npm run crawl:monthly
 
       - name: Update README last run time
         run: |

@@ -18,7 +18,8 @@ const REMOTE_CONFIG_PARAMETER_KEY =
     process.env.FIREBASE_REMOTE_CONFIG_KEY ?? 'arcade_milestones';
 const SHOULD_PUBLISH_REMOTE_CONFIG =
     process.env.PUBLISH_REMOTE_CONFIG?.toLowerCase() === 'true';
-const GITHUB_DATA_FILE = 'data/arcade_milestones.json';
+const MILESTONES_FILE = 'data/arcade_milestones.json';
+const MONTHLY_GAMES_FILE = 'data/arcade_monthly_games.json';
 
 const TIERS = [
     { points: 50, league: 'Arcade Trooper', slots: 6000 },
@@ -26,6 +27,34 @@ const TIERS = [
     { points: 95, league: 'Arcade Champion', slots: 3000 },
     { points: 120, league: 'Arcade Legend', slots: 2500 },
 ] as const;
+
+type MonthlyArcadeGame = {
+    title: string;
+    imageUrl: string | null;
+    accessCode: string | null;
+    deadline: string | null;
+    points: number | null;
+    joinUrl: string | null;
+};
+
+type MonthlyExtraction = {
+    games: MonthlyArcadeGame[];
+    candidateCount: number;
+    skippedCount: number;
+};
+
+function normalizeUrl(value: string | null, baseUrl: string): string | null {
+    if (!value) return null;
+
+    try {
+        const url = new URL(value, baseUrl);
+        return url.protocol === 'http:' || url.protocol === 'https:'
+            ? url.toString()
+            : null;
+    } catch {
+        return null;
+    }
+}
 
 function initializeFirebase() {
     if (getApps().length > 0) return getApp();
@@ -55,7 +84,6 @@ function initializeFirebase() {
 
 async function publishToRemoteConfig(data: unknown) {
     const app = initializeFirebase();
-
     const remoteConfig = getRemoteConfig(app);
     const template = await remoteConfig.getTemplate();
     const nextValue = JSON.stringify(data);
@@ -75,9 +103,7 @@ async function publishToRemoteConfig(data: unknown) {
     }
 
     template.parameters[REMOTE_CONFIG_PARAMETER_KEY] = {
-        defaultValue: {
-            value: nextValue,
-        },
+        defaultValue: { value: nextValue },
         description: 'Google Cloud Skills Boost Arcade prize tiers',
         valueType: 'JSON',
     };
@@ -86,7 +112,6 @@ async function publishToRemoteConfig(data: unknown) {
     };
 
     const publishedTemplate = await remoteConfig.publishTemplate(template);
-
     return {
         changed: true,
         projectId: app.options.projectId,
@@ -98,7 +123,7 @@ const crawler = new PlaywrightCrawler({
     maxRequestRetries: 3,
     maxRequestsPerCrawl: 1,
     navigationTimeoutSecs: 60,
-    requestHandlerTimeoutSecs: 120,
+    requestHandlerTimeoutSecs: 180,
     useSessionPool: true,
     persistCookiesPerSession: false,
     preNavigationHooks: [
@@ -114,7 +139,6 @@ const crawler = new PlaywrightCrawler({
     ],
     errorHandler: async ({ request, session, log }, error) => {
         const message = error instanceof Error ? error.message : String(error);
-
         if (
             message.includes('ERR_EMPTY_RESPONSE') ||
             message.includes('ERR_CONNECTION_RESET') ||
@@ -130,98 +154,203 @@ const crawler = new PlaywrightCrawler({
         });
     },
     async requestHandler({ request, page, log, pushData }) {
-        const deadline = Date.now() + SELECTOR_TIMEOUT_MS;
+        const timeoutAt = Date.now() + SELECTOR_TIMEOUT_MS;
         let matchingFrameUrl: string | undefined;
         let spotsLeft: Array<number | null> | undefined;
+        let monthlyGames: MonthlyArcadeGame[] = [];
+        let monthlyCandidateCount = 0;
+        let monthlySkippedCount = 0;
 
-        while (Date.now() < deadline && !spotsLeft) {
+        while (
+            Date.now() < timeoutAt
+            && (!spotsLeft || (monthlyGames.length === 0 && monthlyCandidateCount === 0))
+        ) {
             for (const frame of page.frames()) {
                 try {
-                    const locator = frame.locator(TIER_POINTS_SELECTOR);
-                    const values = await locator.evaluateAll((elements) =>
-                        elements.map((element) => {
-                            const text = (element.textContent ?? '').trim();
-                            const firstNumber = text.match(/\d[\d,]*/)?.[0];
+                    if (!spotsLeft) {
+                        const values = await frame.locator(TIER_POINTS_SELECTOR).evaluateAll((elements) =>
+                            elements.map((element) => {
+                                const text = (element.textContent ?? '').trim();
+                                const firstNumber = text.match(/\d[\d,]*/)?.[0];
+                                return firstNumber
+                                    ? Number(firstNumber.replace(/,/g, ''))
+                                    : null;
+                            }),
+                        );
 
-                            return firstNumber
-                                ? Number(firstNumber.replace(/,/g, ''))
-                                : null;
-                        }),
-                    );
+                        if (values.length > 0) {
+                            matchingFrameUrl = frame.url();
+                            spotsLeft = values;
+                        }
+                    }
 
-                    if (values.length > 0) {
-                        matchingFrameUrl = frame.url();
-                        spotsLeft = values;
-                        break;
+                    if (monthlyGames.length === 0 && monthlyCandidateCount === 0) {
+                        const extracted = await frame.locator('body').evaluate((body) => {
+                            const clean = (value: string | null | undefined) =>
+                                (value ?? '').replace(/\s+/g, ' ').trim();
+                            const accessCodePattern = /\b(?=[a-z0-9-]*[a-z])(?=[a-z0-9-]*\d)[a-z0-9]+(?:-[a-z0-9]+)+\b/i;
+                            const candidates = Array.from(
+                                body.querySelectorAll<HTMLElement>('.shuffle-item'),
+                            );
+                            let skippedCount = 0;
+
+                            const games = candidates.map((card) => {
+                                const text = clean(card.textContent);
+                                const startLink = Array.from(
+                                    card.querySelectorAll<HTMLAnchorElement>('a[href]'),
+                                ).find((anchor) =>
+                                    Array.from(anchor.querySelectorAll('button'))
+                                        .some((button) => /^START!?$/i.test(clean(button.textContent))),
+                                );
+                                const accessCode = text.match(
+                                    /Access\s*code\s*:\s*([a-z0-9-]+)/i,
+                                )?.[1]?.match(accessCodePattern)?.[0] ?? null;
+                                const pointsMatch = text.match(
+                                    /Arcade\s*points?\s*:\s*(\d+)/i,
+                                );
+                                const heading = card.querySelector<HTMLElement>(
+                                    'h1.card-title, h2.card-title, h3.card-title, h4.card-title, h5.card-title, h6.card-title, h1, h2, h3, h4, h5, h6',
+                                );
+                                const title = clean(heading?.textContent);
+
+                                if (!startLink || !accessCode || !pointsMatch || !title) {
+                                    if (startLink || accessCode || pointsMatch) skippedCount += 1;
+                                    return null;
+                                }
+
+                                const imageUrl = card.querySelector<HTMLImageElement>(
+                                    'img.card-img-top[src], img[src]',
+                                )?.src ?? null;
+                                const deadline = text.match(
+                                    /Deadline\s*:\s*(.*?)(?=Access\s*code|Arcade\s*points?|START!?|$)/i,
+                                )?.[1]?.trim() ?? null;
+
+                                return {
+                                    title,
+                                    imageUrl,
+                                    accessCode,
+                                    deadline,
+                                    points: Number(pointsMatch[1]),
+                                    joinUrl: startLink.href,
+                                };
+                            }).filter((game): game is {
+                                title: string;
+                                imageUrl: string | null;
+                                accessCode: string;
+                                deadline: string | null;
+                                points: number;
+                                joinUrl: string;
+                            } => game !== null);
+
+                            return {
+                                games,
+                                candidateCount: candidates.length,
+                                skippedCount,
+                            };
+                        }) as MonthlyExtraction;
+
+                        if (extracted.candidateCount > 0) {
+                            monthlyCandidateCount += extracted.candidateCount;
+                            monthlySkippedCount += extracted.skippedCount;
+                            monthlyGames.push(...extracted.games.map((game) => ({
+                                ...game,
+                                imageUrl: normalizeUrl(game.imageUrl, frame.url()),
+                                joinUrl: normalizeUrl(game.joinUrl, frame.url()),
+                            })));
+                        }
                     }
                 } catch (error) {
-                    const message =
-                        error instanceof Error ? error.message : String(error);
-
+                    const message = error instanceof Error ? error.message : String(error);
                     if (
                         message.includes('Frame was detached') ||
                         message.includes('Execution context was destroyed')
                     ) {
                         continue;
                     }
-
                     throw error;
                 }
             }
 
-            if (!spotsLeft) await sleep(1_000);
+            if (!spotsLeft || (monthlyGames.length === 0 && monthlyCandidateCount === 0)) {
+                await sleep(1_000);
+            }
         }
 
         if (!spotsLeft) {
+            await mkdir('storage', { recursive: true });
             const title = await page.title();
             const bodyText = ((await page.locator('body').textContent()) ?? '')
                 .replace(/\s+/g, ' ')
                 .trim()
                 .slice(0, 2_000);
-
             await page.screenshot({
                 path: 'storage/arcade-selector-not-found.png',
                 fullPage: true,
             });
 
             throw new Error(
-                `Không tìm thấy ${TIER_POINTS_SELECTOR}. ` +
-                `URL: ${page.url()}; title: ${title}; body: ${bodyText}`,
+                `Không tìm thấy ${TIER_POINTS_SELECTOR}. `
+                + `URL: ${page.url()}; title: ${title}; body: ${bodyText}; `
+                + 'screenshot: storage/arcade-selector-not-found.png',
             );
         }
-
-        if (
-            spotsLeft.length !== TIERS.length ||
-            spotsLeft.some((value) => value === null)
-        ) {
-            throw new Error(
-                `Dữ liệu tier không hợp lệ: ${JSON.stringify(spotsLeft)}`,
-            );
+        if (spotsLeft.length !== TIERS.length || spotsLeft.some((value) => value === null)) {
+            throw new Error(`Dữ liệu tier không hợp lệ: ${JSON.stringify(spotsLeft)}`);
         }
 
-        const data = TIERS.map((tier, index) => ({
+        monthlyGames = Array.from(
+            new Map(monthlyGames.map((game) => [
+                `${game.title}|${game.accessCode ?? ''}`,
+                game,
+            ])).values(),
+        );
+
+        const milestones = TIERS.map((tier, index) => ({
             ...tier,
             spotsLeft: spotsLeft[index] as number,
         }));
 
         await mkdir('data', { recursive: true });
         await writeFile(
-            GITHUB_DATA_FILE,
-            `${JSON.stringify(data, null, 2)}\n`,
+            MILESTONES_FILE,
+            `${JSON.stringify(milestones, null, 2)}\n`,
             'utf8',
         );
 
+        if (monthlyGames.length > 0) {
+            await writeFile(
+                MONTHLY_GAMES_FILE,
+                `${JSON.stringify(monthlyGames, null, 2)}\n`,
+                'utf8',
+            );
+        } else {
+            log.warning(
+                'Monthly Arcade games were not extracted; keeping the previous monthly data file.',
+                {
+                    candidateCount: monthlyCandidateCount,
+                    skippedCount: monthlySkippedCount,
+                },
+            );
+        }
+
         const publishedTemplate = SHOULD_PUBLISH_REMOTE_CONFIG
-            ? await publishToRemoteConfig(data)
+            ? await publishToRemoteConfig(milestones)
             : undefined;
 
         await pushData({
             url: request.loadedUrl,
-            selector: TIER_POINTS_SELECTOR,
             frameUrl: matchingFrameUrl,
-            count: data.length,
-            data,
-            githubDataFile: GITHUB_DATA_FILE,
+            milestones,
+            monthlyGames,
+            monthlyExtraction: {
+                found: monthlyGames.length > 0,
+                candidateCount: monthlyCandidateCount,
+                skippedCount: monthlySkippedCount,
+            },
+            files: {
+                milestones: MILESTONES_FILE,
+                monthlyGames: monthlyGames.length > 0 ? MONTHLY_GAMES_FILE : null,
+            },
             remoteConfig: {
                 published: SHOULD_PUBLISH_REMOTE_CONFIG,
                 changed: publishedTemplate?.changed ?? false,
@@ -231,30 +360,21 @@ const crawler = new PlaywrightCrawler({
             },
         });
 
-        log.info(
-            SHOULD_PUBLISH_REMOTE_CONFIG
-                ? publishedTemplate?.changed
-                    ? 'Arcade tiers published to Firebase Remote Config.'
-                    : 'Arcade tiers unchanged. Remote Config publish skipped.'
-                : 'Arcade tiers collected without publishing Remote Config.',
-        {
+        log.info('Arcade data collected from a single page load.', {
             url: request.loadedUrl,
-            count: data.length,
-            data,
-            githubDataFile: GITHUB_DATA_FILE,
+            milestoneCount: milestones.length,
+            monthlyGameCount: monthlyGames.length,
+            monthlyCandidateCount,
+            monthlySkippedCount,
             published: SHOULD_PUBLISH_REMOTE_CONFIG,
             changed: publishedTemplate?.changed ?? false,
-            projectId: publishedTemplate?.projectId,
-            parameterKey: REMOTE_CONFIG_PARAMETER_KEY,
-            version: publishedTemplate?.version,
-        },
-        );
+        });
     },
 });
 
 await crawler.run([
     {
         url: START_URL,
-        uniqueKey: `arcade-tier-points-${Date.now()}`,
+        uniqueKey: `arcade-data-${Date.now()}`,
     },
 ]);

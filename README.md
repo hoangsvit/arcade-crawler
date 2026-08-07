@@ -18,7 +18,10 @@ Tự động crawl dữ liệu milestone từ **Google Cloud Skills Boost Arcade
 - Playwright (Chromium)
 - Firebase project với Remote Config
 
-Dữ liệu crawl được lưu tại [`data/arcade_milestones.json`](data/arcade_milestones.json).
+Dữ liệu crawl được lưu tại:
+
+- [`data/arcade_milestones.json`](data/arcade_milestones.json) — số slot còn lại của các prize tier.
+- [`data/arcade_monthly_games.json`](data/arcade_monthly_games.json) — danh sách game/lab Arcade đang hoạt động trong tháng.
 
 ---
 
@@ -75,8 +78,11 @@ Workflow [`update-arcade-milestones.yml`](.github/workflows/update-arcade-milest
 
 Sau mỗi lần chạy, workflow tự commit:
 
-- `data/arcade_milestones.json` nếu dữ liệu thay đổi.
+- `data/arcade_milestones.json` nếu dữ liệu milestone thay đổi.
+- `data/arcade_monthly_games.json` nếu danh sách game/lab tháng thay đổi.
 - `README.md` với thời gian chạy mới nhất.
+
+Nếu không lấy được dữ liệu game/lab tháng trong một lần chạy, crawler vẫn cập nhật milestone/Firebase và giữ nguyên file monthly trước đó.
 
 ### Secrets & Variables
 
