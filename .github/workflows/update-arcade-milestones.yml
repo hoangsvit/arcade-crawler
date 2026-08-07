@@ -76,27 +76,24 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          MILESTONES_CHANGED=false
-          MONTHLY_CHANGED=false
-          README_CHANGED=false
-          git diff --quiet -- data/arcade_milestones.json || MILESTONES_CHANGED=true
-          git diff --quiet -- data/arcade_monthly_games.json || MONTHLY_CHANGED=true
-          git diff --quiet -- README.md || README_CHANGED=true
+          # Stage tracked files first. `git diff` alone does not detect a brand-new
+          # untracked file such as arcade_monthly_games.json on its first run.
+          git add README.md data/arcade_milestones.json
+          if [ -f data/arcade_monthly_games.json ]; then
+            git add data/arcade_monthly_games.json
+          fi
 
-          if [ "$MILESTONES_CHANGED" = "false" ] && [ "$MONTHLY_CHANGED" = "false" ] && [ "$README_CHANGED" = "false" ]; then
+          if git diff --cached --quiet; then
             echo "Nothing changed; commit skipped."
             exit 0
           fi
 
-          [ "$MILESTONES_CHANGED" = "true" ] && git add data/arcade_milestones.json
-          [ "$MONTHLY_CHANGED" = "true" ] && git add data/arcade_monthly_games.json
-          [ "$README_CHANGED" = "true" ] && git add README.md
-
-          if [ "$MILESTONES_CHANGED" = "true" ] || [ "$MONTHLY_CHANGED" = "true" ]; then
+          if git diff --cached --name-only | grep -Eq '^data/(arcade_milestones|arcade_monthly_games)\.json$'; then
             git commit -m "chore: update Arcade data"
           else
             git commit -m "chore: update last run time"
           fi
+
           git push
 
       - name: Upload crawler diagnostics
