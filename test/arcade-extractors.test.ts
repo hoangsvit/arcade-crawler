@@ -92,11 +92,12 @@ test('monthly extraction does not depend on month or game names', async () => {
         );
         assert.ok(result.games.every((game) => game.points === 1));
         assert.ok(result.games.every((game) => game.spotsRemaining === null));
+        assert.ok(result.games.every((game) => game.description === null));
         assert.ok(result.games.every((game) => game.joinUrl?.startsWith('https://www.skills.google/games/')));
     });
 });
 
-test('game detail extraction gets canonical title, deadline, and spots remaining', async () => {
+test('game detail extraction gets canonical title, deadline, description, and spots remaining', async () => {
     const gameDetailHtml = `
         <div id="jump-content">
             <div class="game__title">
@@ -113,6 +114,9 @@ test('game detail extraction gets canonical title, deadline, and spots remaining
                     <br>
                     1,472 spots remaining
                 </p>
+                <p>
+                    Welcome to Base Camp, where you’ll develop key Google Cloud skills and earn an exclusive credential.
+                </p>
             </div>
         </div>
     `;
@@ -124,6 +128,7 @@ test('game detail extraction gets canonical title, deadline, and spots remaining
             title: 'Arcade Base Camp August 2026',
             spotsRemaining: 1472,
             deadline: '2026-08-31T17:29:31.000Z',
+            description: 'Welcome to Base Camp, where you’ll develop key Google Cloud skills and earn an exclusive credential.',
         });
     });
 });
@@ -157,6 +162,7 @@ test('missing game detail data does not affect tier extraction', async () => {
             title: null,
             spotsRemaining: null,
             deadline: null,
+            description: null,
         });
     });
 });
