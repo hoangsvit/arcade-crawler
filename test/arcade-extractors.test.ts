@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chromium, type Page } from 'playwright';
-import { extractMonthlyGames, extractTierSpots } from '../src/arcade-extractors.js';
+import {
+    extractGameDetails,
+    extractMonthlyGames,
+    extractTierSpots,
+} from '../src/arcade-extractors.js';
 
 async function withPage(html: string, run: (page: Page) => Promise<void>) {
     const browser = await chromium.launch({ headless: true });
@@ -87,7 +91,39 @@ test('monthly extraction does not depend on month or game names', async () => {
             ['1q-nebula-11111', '1q-cloudquest-22222', '1q-newgame-33333'],
         );
         assert.ok(result.games.every((game) => game.points === 1));
+        assert.ok(result.games.every((game) => game.spotsRemaining === null));
         assert.ok(result.games.every((game) => game.joinUrl?.startsWith('https://www.skills.google/games/')));
+    });
+});
+
+test('game detail extraction gets the canonical title and spots remaining', async () => {
+    const gameDetailHtml = `
+        <div id="jump-content">
+            <div class="game__title">
+                <p class="ql-title-medium">Game</p>
+                <h1 class="ql-display-large">Arcade Base Camp August 2026</h1>
+            </div>
+            <div class="game__details">
+                <p class="ql-title-medium">
+                    <ql-datetime millisecondssinceepoch="1785756931000"></ql-datetime>
+                    —
+                    <ql-datetime millisecondssinceepoch="1788197371000"></ql-datetime>
+                    <br>
+                    25 days remaining
+                    <br>
+                    1,472 spots remaining
+                </p>
+            </div>
+        </div>
+    `;
+
+    await withPage(gameDetailHtml, async (page) => {
+        const details = await extractGameDetails(page);
+
+        assert.deepEqual(details, {
+            title: 'Arcade Base Camp August 2026',
+            spotsRemaining: 1472,
+        });
     });
 });
 
@@ -107,5 +143,18 @@ test('tier extraction still succeeds when monthly cards cannot be extracted', as
         assert.equal(monthly.candidateCount, 1);
         assert.equal(monthly.games.length, 0);
         assert.equal(monthly.skippedCount, 1);
+    });
+});
+
+test('missing game detail data does not affect tier extraction', async () => {
+    await withPage(`${tierHtml}<div id="jump-content"></div>`, async (page) => {
+        const tierSpots = await extractTierSpots(page.mainFrame());
+        const details = await extractGameDetails(page);
+
+        assert.deepEqual(tierSpots, [4052, 3413, 2765, 2496]);
+        assert.deepEqual(details, {
+            title: null,
+            spotsRemaining: null,
+        });
     });
 });
