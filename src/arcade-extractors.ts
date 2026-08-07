@@ -6,12 +6,14 @@ export const GAME_TITLE_SELECTOR = '#jump-content .game__title h1';
 export const GAME_DETAILS_SELECTOR = '#jump-content .game__details';
 export const GAME_DESCRIPTION_SELECTOR = '#jump-content .game__details p:not(.ql-title-medium)';
 export const GAME_DATETIME_SELECTOR = '#jump-content .game__details ql-datetime[millisecondssinceepoch]';
+export const ARCADE_TIME_ZONE = 'Asia/Kolkata';
 
 export type MonthlyArcadeGame = {
     title: string;
     imageUrl: string | null;
     accessCode: string | null;
     deadline: string | null;
+    deadlineTimeZone: typeof ARCADE_TIME_ZONE;
     description: string | null;
     points: number | null;
     joinUrl: string | null;
@@ -98,6 +100,7 @@ export async function extractMonthlyGames(frame: Frame) {
             imageUrl: normalizeUrl(imageUrl, frame.url()),
             accessCode,
             deadline,
+            deadlineTimeZone: ARCADE_TIME_ZONE,
             description: null,
             points: Number(pointsMatch[1]),
             joinUrl: normalizedJoinUrl,
@@ -131,6 +134,8 @@ export async function extractGameDetails(page: Page): Promise<ArcadeGameDetails>
         const rawDeadline = await dateTimeLocators.nth(1).getAttribute('millisecondssinceepoch');
         const deadlineMs = rawDeadline ? Number(rawDeadline) : Number.NaN;
         if (Number.isFinite(deadlineMs)) {
+            // Keep the canonical deadline as an absolute UTC instant for countdowns.
+            // Consumers must use ARCADE_TIME_ZONE when rendering the calendar date/time.
             deadline = new Date(deadlineMs).toISOString();
         }
     }
