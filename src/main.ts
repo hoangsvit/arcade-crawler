@@ -237,9 +237,11 @@ const crawler = new PlaywrightCrawler({
                         const details = await extractGameDetails(detailPage);
                         monthlyGames[index] = {
                             ...game,
-                            title: details.title ?? game.title,
+                            // The Arcade landing card is the canonical source for user-facing copy.
+                            // Detail pages may use a longer/internal title for the same game.
+                            title: game.title,
                             deadline: details.deadline ?? game.deadline,
-                            description: details.description ?? game.description,
+                            description: game.description ?? details.description,
                             spotsRemaining: details.spotsRemaining,
                         };
                     } catch (error) {
