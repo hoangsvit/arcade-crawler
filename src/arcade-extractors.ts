@@ -94,6 +94,15 @@ export async function extractMonthlyGames(frame: Frame) {
 
         const imageUrl = await card.locator('img.card-img-top[src], img[src]').first().getAttribute('src');
         const deadline = text.match(/Deadline\s*:\s*(.*?)(?=Access\s*code|Arcade\s*points?|START!?|$)/i)?.[1]?.trim() ?? null;
+        const paragraphTexts = await card.locator('p').allTextContents();
+        const description = paragraphTexts
+            .map((paragraph) => cleanText(paragraph))
+            .find((paragraph) => (
+                paragraph.length > 0
+                && !/^Access\s*code\s*:/i.test(paragraph)
+                && !/^Arcade\s*points?\s*:/i.test(paragraph)
+                && !/^Deadline\s*:/i.test(paragraph)
+            )) ?? null;
 
         games.push({
             title,
@@ -101,7 +110,7 @@ export async function extractMonthlyGames(frame: Frame) {
             accessCode,
             deadline,
             deadlineTimeZone: ARCADE_TIME_ZONE,
-            description: null,
+            description,
             points: Number(pointsMatch[1]),
             joinUrl: normalizedJoinUrl,
             spotsRemaining: null,
