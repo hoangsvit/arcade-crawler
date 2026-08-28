@@ -1,11 +1,11 @@
 [
   {
-    "title": "Arcade Re-Trail: Vaults & Vectors",
+    "title": "Arcade Re-Trail",
     "imageUrl": "https://services.google.com/fh/files/misc/arcade_retrail_aug2026.png",
     "accessCode": "1q-vaults-39213",
     "deadline": "2026-08-31T17:29:59.000Z",
     "deadlineTimeZone": "Asia/Kolkata",
-    "description": "Since last month's Arcade Trail wrapped up earlier than expected, we’re opening up this bonus game only for this month so you can grab that missed Arcade Point! You'll start on the vault side with Google Cloud Storage—managing buckets, exploring APIs, and locking down sensitive data with Bucket Lock. Then, you'll shift to event-driven vectors at the command line, triggering Cloud Run Functions and routing real-time messages through Pub/Sub. Complete with two hands-on challenge labs, this trail gets your streak back on track while building real-world storage and serverless skills.",
+    "description": "Missed out when last month’s Arcade Trail ended early? No worries—we’re dropping a bonus run so you can grab that missed point, sharpen your storage and serverless skills, and keep your streak going!",
     "points": 1,
     "joinUrl": "https://www.skills.google/games/7426?utm_source=hoangsvit",
     "spotsRemaining": 1956
