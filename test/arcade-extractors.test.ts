@@ -32,6 +32,7 @@ function monthlyCard(options: {
     points?: number;
     gameId: number;
     image: string;
+    description?: string;
     wide?: boolean;
 }) {
     return `
@@ -41,6 +42,7 @@ function monthlyCard(options: {
                 <a href="https://www.skills.google/games/${options.gameId}">
                     <img class="card-img-top" src="${options.image}">
                 </a>
+                <p class="pt-2">${options.description ?? `Description for ${options.title}`}</p>
                 <p><span>Access code:</span> ${options.code}</p>
                 <p>Arcade points: ${options.points ?? 1}</p>
                 <a href="https://www.skills.google/games/${options.gameId}?utm_source=googleskills&utm_medium=lp&utm_campaign=future-month&foo=bar">
@@ -99,10 +101,69 @@ test('monthly extraction does not depend on month or game names and normalizes j
                 'https://www.skills.google/games/8103?utm_source=hoangsvit',
             ],
         );
+        assert.deepEqual(
+            result.games.map((game) => game.description),
+            [
+                'Description for Arcade Nebula September 2026',
+                'Description for Cloud Quest: October Edition',
+                'Description for A Completely New Arcade Name',
+            ],
+        );
         assert.ok(result.games.every((game) => game.points === 1));
         assert.ok(result.games.every((game) => game.spotsRemaining === null));
-        assert.ok(result.games.every((game) => game.description === null));
         assert.ok(result.games.every((game) => game.deadlineTimeZone === ARCADE_TIME_ZONE));
+    });
+});
+
+test('Arcade Re-Trail card copy is extracted as the canonical user-facing metadata', async () => {
+    const retrailHtml = `
+        <div id="game-shuffle-container">
+            <div class="dark-back pt-4 py-3 shuffle-item" style="background-image: url('https://i.ibb.co/SRMTB41/BGimg-form.png');">
+                <div class="container">
+                    <div class="card scrollBox">
+                        <div class="row g-0">
+                            <div class="col-lg-6 align-items-center">
+                                <div class="card-body">
+                                    <a href="https://www.skills.google/games/7426?utm_source=googleskills&utm_medium=lp&utm_campaign=retrail-Aug-arcade26">
+                                        <img src="https://services.google.com/fh/files/misc/arcade_retrail_aug2026.png" alt="cert camo" class="card-img-top specialBadge">
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-lg-6 p-5">
+                                <br>
+                                <h3 class="card-title">Arcade Re-Trail</h3>
+                                <br>
+                                <p class="pt-2">Missed out when last month’s Arcade Trail ended early? No worries—we’re dropping a bonus run so you can grab that missed point, sharpen your storage and serverless skills, and keep your streak going!</p>
+                                <br>
+                                <p class="pt-2"><span style="color:#F5BB11;">Access code:</span> 1q-vaults-39213</p>
+                                <p>Arcade points: 1</p>
+                                <a href="https://www.skills.google/games/7426?utm_source=googleskills&utm_medium=lp&utm_campaign=retrail-Aug-arcade26">
+                                    <button class="btn mt-1 subsBtn">START!</button>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    await withPage(retrailHtml, async (page) => {
+        const result = await extractMonthlyGames(page.mainFrame());
+
+        assert.equal(result.candidateCount, 1);
+        assert.equal(result.skippedCount, 0);
+        assert.deepEqual(result.games[0], {
+            title: 'Arcade Re-Trail',
+            imageUrl: 'https://services.google.com/fh/files/misc/arcade_retrail_aug2026.png',
+            accessCode: '1q-vaults-39213',
+            deadline: null,
+            deadlineTimeZone: ARCADE_TIME_ZONE,
+            description: 'Missed out when last month’s Arcade Trail ended early? No worries—we’re dropping a bonus run so you can grab that missed point, sharpen your storage and serverless skills, and keep your streak going!',
+            points: 1,
+            joinUrl: 'https://www.skills.google/games/7426?utm_source=hoangsvit',
+            spotsRemaining: null,
+        });
     });
 });
 
