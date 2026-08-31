@@ -8,7 +8,7 @@
     "description": "Since last month's Arcade Trail wrapped up earlier than expected, we’re opening up this bonus game only for this month so you can grab that missed Arcade Point! You'll start on the vault side with Google Cloud Storage—managing buckets, exploring APIs, and locking down sensitive data with Bucket Lock. Then, you'll shift to event-driven vectors at the command line, triggering Cloud Run Functions and routing real-time messages through Pub/Sub. Complete with two hands-on challenge labs, this trail gets your streak back on track while building real-world storage and serverless skills.",
     "points": 1,
     "joinUrl": "https://www.skills.google/games/7426?utm_source=hoangsvit",
-    "spotsRemaining": 1819
+    "spotsRemaining": 1221
   },
   {
     "title": "Arcade Simulator: Network Security Engineer",
@@ -19,7 +19,7 @@
     "description": "Welcome to this month's Arcade Simulator where you will step into the shoes of a Network Security Engineer. In this simulation, you'll first lock down access control across your infrastructure—crafting custom IAM roles, scripting permissions, and setting up Identity-Aware Proxy to secure user authentication without traditional VPNs. Then, you'll take control of hybrid enterprise topology, using Network Connectivity Center to link multi-cloud networks, VPCs, and site-to-site HA-VPNs. Complete with two realistic challenge labs, this simulation equips you to eliminate access blind spots, secure cross-cloud traffic, and build a fortress-grade network on Google Cloud.",
     "points": 1,
     "joinUrl": "https://www.skills.google/games/7397?utm_source=hoangsvit",
-    "spotsRemaining": 2748
+    "spotsRemaining": 2646
   },
   {
     "title": "Spans and Plans",
@@ -30,40 +30,7 @@
     "description": "It’s all about global spans and execution plans. First, you'll get under the hood of Google Cloud Spanner to design schemas, load data at scale, and master query plan optimization. From there, you'll execute your serverless backend plan by wiring up Cloud Run Functions, Pub/Sub messaging, and API Gateway. Packed with two challenge labs, you'll leave with full control over enterprise data and event-driven APIs.",
     "points": 1,
     "joinUrl": "https://www.skills.google/games/7399?utm_source=hoangsvit",
-    "spotsRemaining": 3214
-  },
-  {
-    "title": "Arcade Trail: Cloud Delivery Systems",
-    "imageUrl": "https://services.google.com/fh/files/misc/trail-aug.png",
-    "accessCode": "1q-delivery-31058",
-    "deadline": "2026-08-31T17:29:27.000Z",
-    "deadlineTimeZone": "Asia/Kolkata",
-    "description": "Accelerating software delivery while maintaining stability demands automated build, artifact, and release pipelines. This trail covers the core practices for implementing continuous integration and continuous delivery (CI/CD) on Google Cloud. You will begin by managing container images with Artifact Registry and building automated pipelines for Google Kubernetes Engine using Cloud Build. Next, you will configure continuous delivery workflows with Google Cloud Deploy to safely promote releases across environments. Concluding with a practical challenge lab, this trail prepares you to establish resilient, production-ready deployment pipelines.",
-    "points": 1,
-    "joinUrl": "https://www.skills.google/games/7396?utm_source=hoangsvit",
-    "spotsRemaining": 2071
-  },
-  {
-    "title": "Arcade Base Camp August 2026",
-    "imageUrl": "https://services.google.com/fh/files/misc/bc-aug.png",
-    "accessCode": "1q-basecamp-10219",
-    "deadline": "2026-08-31T17:29:31.000Z",
-    "deadlineTimeZone": "Asia/Kolkata",
-    "description": "Welcome to Base Camp, where you’ll develop key Google Cloud skills (available in Spanish and Portuguese too!) and earn an exclusive credential that will open doors to the cloud for you. No prior experience is required!",
-    "points": 1,
-    "joinUrl": "https://www.skills.google/games/7394?utm_source=hoangsvit",
-    "spotsRemaining": 2132
-  },
-  {
-    "title": "Arcade Adventure: Data Vault",
-    "imageUrl": "https://services.google.com/fh/files/misc/adv-aug.png",
-    "accessCode": "1q-datamgt-92372",
-    "deadline": "2026-08-31T17:29:13.000Z",
-    "deadlineTimeZone": "Asia/Kolkata",
-    "description": "Who says sharing complex data across boundaries has to be a compliance nightmare? This adventure is your blueprint for delivering modern Analytics-as-a-Service on Google Data Cloud. You'll start by building secure, authorized views on BigQuery to safely expose data to partners without exposing underlying tables. Next, you'll learn to consume customer-specific datasets and streamline cross-organization data delivery. Packed with a hands-on challenge lab, this adventure gives you the practical skills to publish, share, and scale data seamlessly while keeping security tight.",
-    "points": 1,
-    "joinUrl": "https://www.skills.google/games/7395?utm_source=hoangsvit",
-    "spotsRemaining": 2131
+    "spotsRemaining": 3110
   },
   {
     "title": "Arcade Voyage: Google Sheets",
@@ -74,6 +41,39 @@
     "description": "Transforming raw spreadsheet data into structured business intelligence requires precise validation, efficient navigation, and dynamic visual reporting. This voyage path builds core analytical competencies using Google Sheets. You will begin by implementing strict data validation rules, configuring targeted search workflows, and ensuring data integrity across large datasets. You will then advance to building dynamic charts and executing complex analytical formulas to extract meaningful insights. Finalized with a comprehensive challenge lab, this voyage prepares you to build reliable, presentation-ready analytical workbooks.",
     "points": 1,
     "joinUrl": "https://www.skills.google/games/7398?utm_source=hoangsvit",
-    "spotsRemaining": 2230
+    "spotsRemaining": 2142
+  },
+  {
+    "title": "Arcade Adventure: Data Vault",
+    "imageUrl": "https://services.google.com/fh/files/misc/adv-aug.png",
+    "accessCode": "1q-datamgt-92372",
+    "deadline": "2026-08-31T17:29:13.000Z",
+    "deadlineTimeZone": "Asia/Kolkata",
+    "description": "Who says sharing complex data across boundaries has to be a compliance nightmare? This adventure is your blueprint for delivering modern Analytics-as-a-Service on Google Data Cloud. You'll start by building secure, authorized views on BigQuery to safely expose data to partners without exposing underlying tables. Next, you'll learn to consume customer-specific datasets and streamline cross-organization data delivery. Packed with a hands-on challenge lab, this adventure gives you the practical skills to publish, share, and scale data seamlessly while keeping security tight.",
+    "points": 1,
+    "joinUrl": "https://www.skills.google/games/7395?utm_source=hoangsvit",
+    "spotsRemaining": 2037
+  },
+  {
+    "title": "Arcade Trail: Cloud Delivery Systems",
+    "imageUrl": "https://services.google.com/fh/files/misc/trail-aug.png",
+    "accessCode": "1q-delivery-31058",
+    "deadline": "2026-08-31T17:29:27.000Z",
+    "deadlineTimeZone": "Asia/Kolkata",
+    "description": "Accelerating software delivery while maintaining stability demands automated build, artifact, and release pipelines. This trail covers the core practices for implementing continuous integration and continuous delivery (CI/CD) on Google Cloud. You will begin by managing container images with Artifact Registry and building automated pipelines for Google Kubernetes Engine using Cloud Build. Next, you will configure continuous delivery workflows with Google Cloud Deploy to safely promote releases across environments. Concluding with a practical challenge lab, this trail prepares you to establish resilient, production-ready deployment pipelines.",
+    "points": 1,
+    "joinUrl": "https://www.skills.google/games/7396?utm_source=hoangsvit",
+    "spotsRemaining": 1972
+  },
+  {
+    "title": "Arcade Base Camp August 2026",
+    "imageUrl": "https://services.google.com/fh/files/misc/bc-aug.png",
+    "accessCode": "1q-basecamp-10219",
+    "deadline": "2026-08-31T17:29:31.000Z",
+    "deadlineTimeZone": "Asia/Kolkata",
+    "description": "Welcome to Base Camp, where you’ll develop key Google Cloud skills (available in Spanish and Portuguese too!) and earn an exclusive credential that will open doors to the cloud for you. No prior experience is required!",
+    "points": 1,
+    "joinUrl": "https://www.skills.google/games/7394?utm_source=hoangsvit",
+    "spotsRemaining": 2035
   }
 ]
