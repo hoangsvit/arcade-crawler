@@ -55,17 +55,6 @@
     "spotsRemaining": null
   },
   {
-    "title": "Arcade Base Camp",
-    "imageUrl": "https://services.google.com/fh/files/misc/bc-aug.png",
-    "accessCode": "1q-basecamp-10219",
-    "deadline": null,
-    "deadlineTimeZone": "Asia/Kolkata",
-    "description": null,
-    "points": 1,
-    "joinUrl": "https://www.skills.google/games/7394?utm_source=hoangsvit",
-    "spotsRemaining": null
-  },
-  {
     "title": "Arcade Trail",
     "imageUrl": "https://services.google.com/fh/files/misc/trail-aug.png",
     "accessCode": "1q-delivery-31058",
@@ -74,6 +63,17 @@
     "description": null,
     "points": 1,
     "joinUrl": "https://www.skills.google/games/7396?utm_source=hoangsvit",
+    "spotsRemaining": null
+  },
+  {
+    "title": "Arcade Base Camp",
+    "imageUrl": "https://services.google.com/fh/files/misc/bc-aug.png",
+    "accessCode": "1q-basecamp-10219",
+    "deadline": null,
+    "deadlineTimeZone": "Asia/Kolkata",
+    "description": null,
+    "points": 1,
+    "joinUrl": "https://www.skills.google/games/7394?utm_source=hoangsvit",
     "spotsRemaining": null
   }
 ]
