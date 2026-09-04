@@ -139,77 +139,70 @@ export async function extractMonthlyGames(frame: Frame) {
  * introduced later in the year.
  */
 export async function extractHistoricalMonthlyGames(frame: Frame, year = 2026) {
-    const extracted = await frame.evaluate((targetYear): {
-        cards: HistoricalArcadeCard[];
-        candidateCount: number;
-    } => {
+    // Use a raw browser-side script instead of a TS callback. tsx/esbuild can add
+    // helper symbols (for example __name) to nested functions in evaluate callbacks;
+    // those helpers do not exist inside the browser execution context.
+    const script = `(() => {
+        const targetYear = ${JSON.stringify(year)};
         const container = document.querySelector('.goContainer');
         if (!container) return { cards: [], candidateCount: 0 };
 
-        const months: Record<string, string> = {
-            january: '01',
-            february: '02',
-            march: '03',
-            april: '04',
-            may: '05',
-            june: '06',
-            july: '07',
-            august: '08',
-            september: '09',
-            october: '10',
-            november: '11',
-            december: '12',
+        const months = {
+            january: '01', february: '02', march: '03', april: '04',
+            may: '05', june: '06', july: '07', august: '08',
+            september: '09', october: '10', november: '11', december: '12'
         };
-        const cards: HistoricalArcadeCard[] = [];
-        let month = `${targetYear}-01`;
+        const cards = [];
+        let month = targetYear + '-01';
         let candidateCount = 0;
 
-        const clean = (value: string | null | undefined) => (value ?? '').replace(/\s+/g, ' ').trim();
-        const monthFromComment = (value: string) => {
-            const normalized = value.toLowerCase();
+        const clean = (value) => (value || '').replace(/\\s+/g, ' ').trim();
+        const monthFromComment = (value) => {
+            const normalized = (value || '').toLowerCase();
             for (const [name, number] of Object.entries(months)) {
                 if (normalized.includes(name.slice(0, 3)) || normalized.includes(name)) {
-                    return `${targetYear}-${number}`;
+                    return targetYear + '-' + number;
                 }
             }
             return null;
         };
-
-        const walk = (node: Node) => {
+        const walk = (node) => {
             for (const child of Array.from(node.childNodes)) {
                 if (child.nodeType === Node.COMMENT_NODE) {
-                    const detected = monthFromComment(child.nodeValue ?? '');
+                    const detected = monthFromComment(child.nodeValue || '');
                     if (detected) month = detected;
                     continue;
                 }
-
                 if (!(child instanceof Element)) continue;
-
                 if (child.classList.contains('col-lg-2')) {
                     const titleNode = child.querySelector('p.pt-5');
                     if (titleNode) {
                         candidateCount += 1;
                         const paragraphs = Array.from(child.querySelectorAll('p')).map((item) => clean(item.textContent));
-                        const pointsText = paragraphs.find((text) => /^Arcade\s*points?\s*:/i.test(text)) ?? '';
-                        const pointsMatch = pointsText.match(/^Arcade\s*points?\s*:\s*(\d+(?:\.\d+)?)/i);
+                        const pointsText = paragraphs.find((text) => /^Arcade\\s*points?\\s*:/i.test(text)) || '';
+                        const pointsMatch = pointsText.match(/^Arcade\\s*points?\\s*:\\s*(\\d+(?:\\.\\d+)?)/i);
                         cards.push({
                             month,
                             rawTitle: clean(titleNode.textContent),
-                            imageUrl: child.querySelector('img[src]')?.getAttribute('src') ?? null,
-                            joinUrl: child.querySelector('a[href*="/games/"]')?.getAttribute('href') ?? null,
-                            points: pointsMatch ? Number(pointsMatch[1]) : null,
+                            imageUrl: child.querySelector('img[src]')?.getAttribute('src') || null,
+                            joinUrl: child.querySelector('a[href*="/games/"]')?.getAttribute('href') || null,
+                            points: pointsMatch ? Number(pointsMatch[1]) : null
                         });
                         continue;
                     }
                 }
-
                 walk(child);
             }
         };
 
         walk(container);
         return { cards, candidateCount };
-    }, year);
+    })()`;
+
+    const extracted = await frame.evaluate(script) as {
+        cards: HistoricalArcadeCard[];
+        candidateCount: number;
+    };
 
     const games: MonthlyArcadeGame[] = [];
     let skippedCount = 0;
