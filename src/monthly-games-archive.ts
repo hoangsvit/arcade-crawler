@@ -22,6 +22,13 @@ export function arcadeMonthKey(game: MonthlyArcadeGame): string | null {
     return year && month ? `${year}-${month}` : null;
 }
 
+export function monthlyArchiveFile(archiveDir: string, month: string): string {
+    const match = month.match(/^(\d{4})-(\d{2})$/);
+    if (!match) throw new Error(`Invalid Arcade month key: ${month}`);
+
+    return join(archiveDir, match[1], `${match[2]}.json`);
+}
+
 export function mergeMonthlyGames(
     existing: MonthlyArcadeGame[],
     incoming: MonthlyArcadeGame[],
@@ -72,10 +79,10 @@ export async function persistMonthlyGameArchives(
     }
 
     const archiveFiles: string[] = [];
-    await mkdir(archiveDir, { recursive: true });
 
     for (const [month, monthGames] of byMonth) {
-        const archiveFile = join(archiveDir, `${month}.json`);
+        const archiveFile = monthlyArchiveFile(archiveDir, month);
+        await mkdir(dirname(archiveFile), { recursive: true });
         const existing = await readGames(archiveFile);
         const merged = mergeMonthlyGames(existing, monthGames);
         await writeJson(archiveFile, merged);

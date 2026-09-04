@@ -22,7 +22,7 @@ Dữ liệu crawl được lưu tại:
 
 - [`data/arcade_milestones.json`](data/arcade_milestones.json) — số slot còn lại của các prize tier.
 - [`data/arcade_monthly_games.json`](data/arcade_monthly_games.json) — snapshot danh sách game/lab Arcade đang hoạt động ở lần crawl mới nhất.
-- `data/arcade_monthly_games_history/YYYY-MM.json` — archive theo tháng. File archive được **merge** chứ không replace toàn bộ, nên game đã từng crawl được trong tháng sẽ không bị mất nếu sau đó card biến mất khỏi trang active.
+- `data/arcade_monthly_games_history/YYYY/MM.json` — archive theo năm/tháng. Ví dụ tháng 09/2026 nằm tại `data/arcade_monthly_games_history/2026/09.json`. File archive được **merge** chứ không replace toàn bộ, nên game đã từng crawl được trong tháng sẽ không bị mất nếu sau đó card biến mất khỏi trang active.
 
 Month archive được xác định theo `deadlineTimeZone` của Arcade (`Asia/Kolkata`), không theo timezone của GitHub runner. Ví dụ deadline `2026-09-30T17:29:28Z` vẫn thuộc **2026-09** của Arcade dù ở Việt Nam lúc đó đã sang ngày 01/10.
 
@@ -83,7 +83,7 @@ Sau mỗi lần chạy, workflow tự commit:
 
 - `data/arcade_milestones.json` nếu dữ liệu milestone thay đổi.
 - `data/arcade_monthly_games.json` nếu snapshot game/lab active thay đổi.
-- `data/arcade_monthly_games_history/YYYY-MM.json` nếu có dữ liệu mới/cập nhật của tháng tương ứng.
+- `data/arcade_monthly_games_history/YYYY/MM.json` nếu có dữ liệu mới/cập nhật của tháng tương ứng.
 - `README.md` với thời gian chạy mới nhất.
 
 Nếu không lấy được dữ liệu game/lab tháng trong một lần chạy, crawler vẫn cập nhật milestone/Firebase và giữ nguyên cả snapshot monthly lẫn archive lịch sử trước đó.
