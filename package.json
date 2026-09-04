@@ -25,7 +25,7 @@
     "start:prod": "node dist/main.js",
     "start:dev": "tsx src/main.ts",
     "build": "tsc",
-    "test": "node --import tsx --test test/arcade-extractors.test.ts"
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "author": "It's not you it's me",
   "license": "ISC"
