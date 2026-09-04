@@ -9,6 +9,7 @@ on:
     paths-ignore:
       - "data/arcade_milestones.json"
       - "data/arcade_monthly_games.json"
+      - "data/arcade_monthly_games_history/**"
 
   schedule:
     - cron: '0 */6 * * *'
@@ -76,11 +77,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage tracked files first. `git diff` alone does not detect a brand-new
-          # untracked file such as arcade_monthly_games.json on its first run.
+          # Stage current snapshots and append-only monthly archives. Archive files
+          # are merged by game identity, so a card disappearing later in the month
+          # cannot erase data already observed by the crawler.
           git add README.md data/arcade_milestones.json
           if [ -f data/arcade_monthly_games.json ]; then
             git add data/arcade_monthly_games.json
+          fi
+          if [ -d data/arcade_monthly_games_history ]; then
+            git add data/arcade_monthly_games_history
           fi
 
           if git diff --cached --quiet; then
@@ -88,7 +93,7 @@ jobs:
             exit 0
           fi
 
-          if git diff --cached --name-only | grep -Eq '^data/(arcade_milestones|arcade_monthly_games)\.json$'; then
+          if git diff --cached --name-only | grep -Eq '^data/(arcade_milestones|arcade_monthly_games|arcade_monthly_games_history/)'; then
             git commit -m "chore: update Arcade data"
           else
             git commit -m "chore: update last run time"
