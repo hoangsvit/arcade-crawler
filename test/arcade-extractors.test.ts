@@ -235,7 +235,7 @@ test('monthly archive preserves games that disappear from a later crawl', async 
         ], latestFile, archiveDir);
 
         const archive = JSON.parse(
-            await readFile(join(archiveDir, '2026-09.json'), 'utf8'),
+            await readFile(join(archiveDir, '2026', '09.json'), 'utf8'),
         ) as MonthlyArcadeGame[];
         const latest = JSON.parse(await readFile(latestFile, 'utf8')) as MonthlyArcadeGame[];
 
