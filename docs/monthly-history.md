@@ -2,7 +2,9 @@
 
 `data/arcade_monthly_games.json` remains the latest active snapshot.
 
-`data/arcade_monthly_games_history/YYYY-MM.json` is append-only by month. The crawler now fills it from two official signals:
+`data/arcade_monthly_games_history/YYYY/MM.json` is append-only by month and grouped by year so the history root does not become crowded as more seasons are added. For example, September 2026 is stored at `data/arcade_monthly_games_history/2026/09.json`.
+
+The crawler fills the archive from two official signals:
 
 1. active monthly Arcade cards, enriched from each game detail page; and
 2. the official **Game over** history section, whose HTML month comments are used to reconstruct months that predate the active monthly crawler.
