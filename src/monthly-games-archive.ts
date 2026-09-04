@@ -5,6 +5,7 @@ import type { MonthlyArcadeGame } from './arcade-extractors.js';
 export const MONTHLY_GAMES_ARCHIVE_DIR = 'data/arcade_monthly_games_history';
 
 export function arcadeMonthKey(game: MonthlyArcadeGame): string | null {
+    if (game.month && /^\d{4}-\d{2}$/.test(game.month)) return game.month;
     if (!game.deadline) return null;
 
     const deadline = new Date(game.deadline);
@@ -25,17 +26,19 @@ export function mergeMonthlyGames(
     existing: MonthlyArcadeGame[],
     incoming: MonthlyArcadeGame[],
 ): MonthlyArcadeGame[] {
-    const games = new Map<string, MonthlyArcadeGame>();
-
-    for (const game of existing) {
-        games.set(gameIdentity(game), game);
-    }
+    const merged = [...existing];
 
     for (const game of incoming) {
-        games.set(gameIdentity(game), game);
+        const index = merged.findIndex((candidate) => sameGame(candidate, game));
+        if (index === -1) {
+            merged.push(game);
+            continue;
+        }
+
+        merged[index] = mergeGame(merged[index], game);
     }
 
-    return [...games.values()].sort((left, right) => left.title.localeCompare(right.title));
+    return merged.sort((left, right) => left.title.localeCompare(right.title));
 }
 
 export async function persistMonthlyGames(
@@ -48,6 +51,15 @@ export async function persistMonthlyGames(
     await mkdir(dirname(latestFile), { recursive: true });
     await writeJson(latestFile, games);
 
+    return persistMonthlyGameArchives(games, archiveDir);
+}
+
+export async function persistMonthlyGameArchives(
+    games: MonthlyArcadeGame[],
+    archiveDir = MONTHLY_GAMES_ARCHIVE_DIR,
+): Promise<string[]> {
+    if (games.length === 0) return [];
+
     const byMonth = new Map<string, MonthlyArcadeGame[]>();
 
     for (const game of games) {
@@ -55,7 +67,7 @@ export async function persistMonthlyGames(
         if (!month) continue;
 
         const monthGames = byMonth.get(month) ?? [];
-        monthGames.push(game);
+        monthGames.push({ ...game, month });
         byMonth.set(month, monthGames);
     }
 
@@ -89,15 +101,51 @@ async function writeJson(path: string, value: unknown) {
     await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
-function gameIdentity(game: MonthlyArcadeGame): string {
-    const gameId = game.joinUrl?.match(/\/games\/(\d+)/)?.[1];
-    if (gameId) return `game:${gameId}`;
+function sameGame(left: MonthlyArcadeGame, right: MonthlyArcadeGame): boolean {
+    const leftId = gameId(left);
+    const rightId = gameId(right);
+    if (leftId && rightId && leftId === rightId) return true;
 
-    return `title:${normalize(game.title)}|code:${normalize(game.accessCode ?? '')}`;
+    const leftNames = gameNames(left);
+    const rightNames = gameNames(right);
+    return leftNames.some((name) => rightNames.includes(name));
+}
+
+function gameId(game: MonthlyArcadeGame): string | null {
+    return game.joinUrl?.match(/\/games\/(\d+)/)?.[1] ?? null;
+}
+
+function gameNames(game: MonthlyArcadeGame): string[] {
+    return [...new Set([
+        normalize(game.title),
+        ...(game.aliases ?? []).map(normalize),
+        game.rawTitle ? normalize(game.rawTitle) : '',
+    ].filter(Boolean))];
+}
+
+function mergeGame(existing: MonthlyArcadeGame, incoming: MonthlyArcadeGame): MonthlyArcadeGame {
+    const next = { ...existing, ...incoming };
+
+    for (const key of Object.keys(existing) as Array<keyof MonthlyArcadeGame>) {
+        const incomingValue = incoming[key];
+        if (incomingValue === null || incomingValue === undefined || incomingValue === '') {
+            (next as Record<string, unknown>)[key] = existing[key];
+        }
+    }
+
+    next.aliases = [...new Set([...(existing.aliases ?? []), ...(incoming.aliases ?? [])])];
+    next.month = incoming.month ?? existing.month ?? arcadeMonthKey(incoming) ?? arcadeMonthKey(existing);
+    next.group = incoming.group ?? existing.group ?? null;
+    next.source = incoming.source ?? existing.source ?? null;
+    next.sourceUrl = incoming.sourceUrl ?? existing.sourceUrl ?? null;
+    next.status = incoming.status ?? existing.status ?? null;
+    next.reconstructed = incoming.reconstructed ?? existing.reconstructed ?? false;
+
+    return next;
 }
 
 function normalize(value: string): string {
-    return value.trim().toLowerCase().replace(/\s+/g, ' ');
+    return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ');
 }
 
 function isMissingFile(error: unknown): boolean {

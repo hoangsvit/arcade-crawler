@@ -13,6 +13,7 @@ import { getRemoteConfig } from 'firebase-admin/remote-config';
 import {
     cleanText,
     extractGameDetails,
+    extractHistoricalMonthlyGames,
     extractMonthlyGames,
     extractTierSpots,
     TIER_POINTS_SELECTOR,
@@ -20,6 +21,7 @@ import {
 } from './arcade-extractors.js';
 import {
     MONTHLY_GAMES_ARCHIVE_DIR,
+    persistMonthlyGameArchives,
     persistMonthlyGames,
 } from './monthly-games-archive.js';
 
@@ -142,6 +144,9 @@ const crawler = new PlaywrightCrawler({
         let monthlyGames: MonthlyArcadeGame[] = [];
         let monthlyCandidateCount = 0;
         let monthlySkippedCount = 0;
+        let historicalGames: MonthlyArcadeGame[] = [];
+        let historicalCandidateCount = 0;
+        let historicalSkippedCount = 0;
 
         while (
             Date.now() < timeoutAt
@@ -163,6 +168,15 @@ const crawler = new PlaywrightCrawler({
                             monthlyCandidateCount += extracted.candidateCount;
                             monthlySkippedCount += extracted.skippedCount;
                             monthlyGames.push(...extracted.games);
+                        }
+                    }
+
+                    if (historicalGames.length === 0 && historicalCandidateCount === 0) {
+                        const historical = await extractHistoricalMonthlyGames(frame);
+                        if (historical.candidateCount > 0) {
+                            historicalCandidateCount += historical.candidateCount;
+                            historicalSkippedCount += historical.skippedCount;
+                            historicalGames.push(...historical.games);
                         }
                     }
                 } catch (error) {
@@ -207,6 +221,12 @@ const crawler = new PlaywrightCrawler({
                 game,
             ])).values(),
         );
+        historicalGames = Array.from(
+            new Map(historicalGames.map((game) => [
+                `${game.month ?? ''}|${game.title}|${game.joinUrl ?? ''}`,
+                game,
+            ])).values(),
+        );
 
         const milestones = TIERS.map((tier, index) => ({
             ...tier,
@@ -222,7 +242,17 @@ const crawler = new PlaywrightCrawler({
             : undefined;
 
         let monthlyDetailFailedCount = 0;
-        let monthlyArchiveFiles: string[] = [];
+        const archiveFiles = new Set<string>();
+
+        // Historical cards are append-only source data. Persist them first, then let
+        // richer current-month entries update the same archive record where possible.
+        for (const file of await persistMonthlyGameArchives(
+            historicalGames,
+            MONTHLY_GAMES_ARCHIVE_DIR,
+        )) {
+            archiveFiles.add(file);
+        }
+
         if (monthlyGames.length > 0) {
             const detailPage = await page.context().newPage();
             try {
@@ -259,14 +289,16 @@ const crawler = new PlaywrightCrawler({
                 await detailPage.close();
             }
 
-            monthlyArchiveFiles = await persistMonthlyGames(
+            for (const file of await persistMonthlyGames(
                 monthlyGames,
                 MONTHLY_GAMES_FILE,
                 MONTHLY_GAMES_ARCHIVE_DIR,
-            );
+            )) {
+                archiveFiles.add(file);
+            }
         } else {
             log.warning(
-                'Monthly Arcade games were not extracted; keeping the previous monthly data file and archives.',
+                'Monthly Arcade games were not extracted; keeping the previous monthly data file.',
                 {
                     candidateCount: monthlyCandidateCount,
                     skippedCount: monthlySkippedCount,
@@ -274,16 +306,31 @@ const crawler = new PlaywrightCrawler({
             );
         }
 
+        if (historicalGames.length === 0) {
+            log.warning('Historical Arcade game cards were not extracted; existing archives are unchanged.', {
+                candidateCount: historicalCandidateCount,
+                skippedCount: historicalSkippedCount,
+            });
+        }
+
+        const monthlyArchiveFiles = [...archiveFiles].sort();
+
         await pushData({
             url: request.loadedUrl,
             frameUrl: matchingFrameUrl,
             milestones,
             monthlyGames,
+            historicalGames,
             monthlyExtraction: {
                 found: monthlyGames.length > 0,
                 candidateCount: monthlyCandidateCount,
                 skippedCount: monthlySkippedCount,
                 detailFailedCount: monthlyDetailFailedCount,
+            },
+            historicalExtraction: {
+                found: historicalGames.length > 0,
+                candidateCount: historicalCandidateCount,
+                skippedCount: historicalSkippedCount,
             },
             files: {
                 milestones: MILESTONES_FILE,
@@ -303,10 +350,13 @@ const crawler = new PlaywrightCrawler({
             url: request.loadedUrl,
             milestoneCount: milestones.length,
             monthlyGameCount: monthlyGames.length,
+            historicalGameCount: historicalGames.length,
             monthlyArchiveCount: monthlyArchiveFiles.length,
             monthlyCandidateCount,
             monthlySkippedCount,
             monthlyDetailFailedCount,
+            historicalCandidateCount,
+            historicalSkippedCount,
             published: SHOULD_PUBLISH_REMOTE_CONFIG,
             changed: publishedTemplate?.changed ?? false,
         });

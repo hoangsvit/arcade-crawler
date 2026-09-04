@@ -1,0 +1,1 @@
+This directory stores durable monthly Arcade snapshots as `YYYY-MM.json` files. Files are merged rather than replaced so later crawls cannot erase games already observed for a month. Historical months can also be reconstructed from the official Arcade `Game over` section and are marked with `reconstructed: true`.
