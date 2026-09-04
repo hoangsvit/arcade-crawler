@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { chromium, type Page } from 'playwright';
 import {
@@ -6,7 +9,12 @@ import {
     extractGameDetails,
     extractMonthlyGames,
     extractTierSpots,
+    type MonthlyArcadeGame,
 } from '../src/arcade-extractors.js';
+import {
+    arcadeMonthKey,
+    persistMonthlyGames,
+} from '../src/monthly-games-archive.js';
 
 async function withPage(html: string, run: (page: Page) => Promise<void>) {
     const browser = await chromium.launch({ headless: true });
@@ -49,6 +57,21 @@ function monthlyCard(options: {
             </div>
         </div>
     `;
+}
+
+function archivedGame(overrides: Partial<MonthlyArcadeGame> = {}): MonthlyArcadeGame {
+    return {
+        title: 'Pitch Perfect',
+        imageUrl: 'https://example.test/pitch.png',
+        accessCode: '1q-analysis-5026',
+        deadline: '2026-09-30T17:29:28.000Z',
+        deadlineTimeZone: ARCADE_TIME_ZONE,
+        description: 'September game',
+        points: 1,
+        joinUrl: 'https://www.skills.google/games/7446?utm_source=hoangsvit',
+        spotsRemaining: 4557,
+        ...overrides,
+    };
 }
 
 test('monthly extraction does not depend on month or game names and normalizes join URLs', async () => {
@@ -185,4 +208,42 @@ test('missing game detail data does not affect tier extraction', async () => {
             description: null,
         });
     });
+});
+
+test('monthly archive uses the Arcade deadline timezone instead of the runner timezone', () => {
+    // 17:29 UTC is already October 1 in Vietnam, but still September 30 in the
+    // Arcade program timezone. The archive must therefore remain 2026-09.
+    assert.equal(arcadeMonthKey(archivedGame()), '2026-09');
+});
+
+test('monthly archive preserves games that disappear from a later crawl', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'arcade-monthly-'));
+    const latestFile = join(root, 'arcade_monthly_games.json');
+    const archiveDir = join(root, 'history');
+
+    try {
+        const first = archivedGame();
+        const second = archivedGame({
+            title: 'Arcade Base Camp September 2026',
+            accessCode: '1q-basecamp-09304',
+            joinUrl: 'https://www.skills.google/games/7444?utm_source=hoangsvit',
+        });
+
+        await persistMonthlyGames([first, second], latestFile, archiveDir);
+        await persistMonthlyGames([
+            archivedGame({ spotsRemaining: 4000 }),
+        ], latestFile, archiveDir);
+
+        const archive = JSON.parse(
+            await readFile(join(archiveDir, '2026-09.json'), 'utf8'),
+        ) as MonthlyArcadeGame[];
+        const latest = JSON.parse(await readFile(latestFile, 'utf8')) as MonthlyArcadeGame[];
+
+        assert.equal(archive.length, 2);
+        assert.equal(archive.find((game) => game.title === 'Pitch Perfect')?.spotsRemaining, 4000);
+        assert.ok(archive.some((game) => game.title === 'Arcade Base Camp September 2026'));
+        assert.deepEqual(latest.map((game) => game.title), ['Pitch Perfect']);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
 });
