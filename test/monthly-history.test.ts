@@ -11,6 +11,7 @@ import {
 } from '../src/arcade-extractors.js';
 import {
     arcadeMonthKey,
+    monthlyArchiveFile,
     persistMonthlyGameArchives,
 } from '../src/monthly-games-archive.js';
 
@@ -87,6 +88,13 @@ test('archive month prefers explicit historical month when deadline is unavailab
     assert.equal(arcadeMonthKey(game({ month: '2026-03' })), '2026-03');
 });
 
+test('archive files are grouped under their year folder', () => {
+    assert.equal(
+        monthlyArchiveFile('data/arcade_monthly_games_history', '2026-09'),
+        join('data/arcade_monthly_games_history', '2026', '09.json'),
+    );
+});
+
 test('backfilled archives preserve multiple historical months', async () => {
     const root = await mkdtemp(join(tmpdir(), 'arcade-history-'));
 
@@ -107,12 +115,12 @@ test('backfilled archives preserve multiple historical months', async () => {
         ], root);
 
         assert.deepEqual(files, [
-            join(root, '2026-01.json'),
-            join(root, '2026-08.json'),
+            join(root, '2026', '01.json'),
+            join(root, '2026', '08.json'),
         ]);
 
-        const january = JSON.parse(await readFile(join(root, '2026-01.json'), 'utf8')) as MonthlyArcadeGame[];
-        const august = JSON.parse(await readFile(join(root, '2026-08.json'), 'utf8')) as MonthlyArcadeGame[];
+        const january = JSON.parse(await readFile(join(root, '2026', '01.json'), 'utf8')) as MonthlyArcadeGame[];
+        const august = JSON.parse(await readFile(join(root, '2026', '08.json'), 'utf8')) as MonthlyArcadeGame[];
 
         assert.equal(january[0]?.title, 'Level 1: January 2026');
         assert.equal(january[0]?.month, '2026-01');
