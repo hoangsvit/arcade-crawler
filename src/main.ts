@@ -18,6 +18,10 @@ import {
     TIER_POINTS_SELECTOR,
     type MonthlyArcadeGame,
 } from './arcade-extractors.js';
+import {
+    MONTHLY_GAMES_ARCHIVE_DIR,
+    persistMonthlyGames,
+} from './monthly-games-archive.js';
 
 const START_URL = 'https://go.cloudskillsboost.google/arcade';
 const SELECTOR_TIMEOUT_MS = 90_000;
@@ -218,6 +222,7 @@ const crawler = new PlaywrightCrawler({
             : undefined;
 
         let monthlyDetailFailedCount = 0;
+        let monthlyArchiveFiles: string[] = [];
         if (monthlyGames.length > 0) {
             const detailPage = await page.context().newPage();
             try {
@@ -254,14 +259,14 @@ const crawler = new PlaywrightCrawler({
                 await detailPage.close();
             }
 
-            await writeFile(
+            monthlyArchiveFiles = await persistMonthlyGames(
+                monthlyGames,
                 MONTHLY_GAMES_FILE,
-                `${JSON.stringify(monthlyGames, null, 2)}\n`,
-                'utf8',
+                MONTHLY_GAMES_ARCHIVE_DIR,
             );
         } else {
             log.warning(
-                'Monthly Arcade games were not extracted; keeping the previous monthly data file.',
+                'Monthly Arcade games were not extracted; keeping the previous monthly data file and archives.',
                 {
                     candidateCount: monthlyCandidateCount,
                     skippedCount: monthlySkippedCount,
@@ -283,6 +288,7 @@ const crawler = new PlaywrightCrawler({
             files: {
                 milestones: MILESTONES_FILE,
                 monthlyGames: monthlyGames.length > 0 ? MONTHLY_GAMES_FILE : null,
+                monthlyGameArchives: monthlyArchiveFiles,
             },
             remoteConfig: {
                 published: SHOULD_PUBLISH_REMOTE_CONFIG,
@@ -297,6 +303,7 @@ const crawler = new PlaywrightCrawler({
             url: request.loadedUrl,
             milestoneCount: milestones.length,
             monthlyGameCount: monthlyGames.length,
+            monthlyArchiveCount: monthlyArchiveFiles.length,
             monthlyCandidateCount,
             monthlySkippedCount,
             monthlyDetailFailedCount,
