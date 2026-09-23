@@ -111,9 +111,12 @@ async function writeHistory(file: string, feed: MilestoneHistoryFeed) {
 }
 
 /**
- * Append only when the observed tier counts/capacities actually change.
- * Keep permanent monthly archives and one small rolling 31-day browser feed.
- * Never invent or backfill historical timestamps from old Git revisions.
+ * Record a genuine observation from the first successful crawl on each UTC day
+ * and immediately after every material change (count or capacity).
+ * Permanent UTC-month archives are NOT built from Git commit history; they
+ * contain real crawler timestamps and remain present in unchanged months.
+ * The rolling 31-day UI feed retains the latest pre-window anchor.
+ * Never invent or backfill older observations from historical commits.
  */
 export async function persistMilestoneHistory(
     tiers: readonly MilestoneCount[],
@@ -127,11 +130,17 @@ export async function persistMilestoneHistory(
     const latestFile = join(root, 'latest.json');
     const latest = await readHistory(latestFile);
     const previous = latest.snapshots[latest.snapshots.length - 1];
-    if (previous && sameTiers(previous.tiers, normalized)) {
-        return { changed: false, latestFile, archiveFile: null, snapshotCount: latest.snapshots.length };
-    }
+    // Check timestamps before deduplication: an out-of-order retry should
+    // never silently conceal an invalid or stale observation.
     if (previous && Date.parse(previous.at) >= observedMs) {
         throw new Error('Milestone history observation must be newer than the last snapshot.');
+    }
+    const countChanged = !previous || !sameTiers(previous.tiers, normalized);
+    const newUtcDay = !previous || previous.at.slice(0, 10) !== at.slice(0, 10);
+    // Successful crawls without a change are sampled once per UTC day, so
+    // months with stable counts have real observations, not invented changes.
+    if (!countChanged && !newUtcDay) {
+        return { changed: false, latestFile, archiveFile: null, snapshotCount: latest.snapshots.length };
     }
 
     const nextSnapshot: MilestoneSnapshot = { at, tiers: normalized };

@@ -95,3 +95,80 @@ test('corrupt existing feeds and out-of-order observations are not overwritten',
         );
     });
 });
+
+test('first unchanged crawl of each new UTC day is recorded once, including a new month', async () => {
+    await withTemp(async (root) => {
+        const same = counts();
+        const first = await persistMilestoneHistory(same, root, new Date('2026-09-30T21:00:00Z'));
+        const second = await persistMilestoneHistory(same, root, new Date('2026-09-30T23:00:00Z'));
+        assert.equal(first.changed, true);
+        assert.equal(second.changed, false);
+
+        // The first successful crawl of the next UTC day/month is a REAL
+        // observation with a REAL timestamp; it must not be labeled midnight.
+        const october = await persistMilestoneHistory(same, root, new Date('2026-10-01T05:10:45Z'));
+        assert.equal(october.changed, true);
+        assert.equal(october.archiveFile, join(root, '2026', '10.json'));
+        assert.equal((await feed(join(root, '2026', '09.json'))).snapshots.length, 1);
+        const archive = await feed(join(root, '2026', '10.json'));
+        assert.equal(archive.snapshots.length, 1);
+        assert.equal(archive.snapshots[0].at, '2026-10-01T05:10:45.000Z');
+        assert.deepEqual(archive.snapshots[0].tiers, same);
+
+        const extra = await persistMilestoneHistory(same, root, new Date('2026-10-01T11:10:45Z'));
+        assert.equal(extra.changed, false);
+        assert.equal((await feed(join(root, '2026', '10.json'))).snapshots.length, 1);
+        assert.equal((await feed(october.latestFile)).snapshots.length, 2);
+    });
+});
+
+test('a value change is recorded immediately even after the daily checkpoint', async () => {
+    await withTemp(async (root) => {
+        await persistMilestoneHistory(counts(), root, new Date('2026-09-23T01:00:00Z'));
+        const daily = await persistMilestoneHistory(counts(), root, new Date('2026-09-24T01:00:00Z'));
+        assert.equal(daily.changed, true);
+        const changed = await persistMilestoneHistory(counts(3718, 1622, 781, 1397), root,
+            new Date('2026-09-24T07:00:00Z'));
+        assert.equal(changed.changed, true);
+        const unchanged = await persistMilestoneHistory(counts(3718, 1622, 781, 1397), root,
+            new Date('2026-09-24T13:00:00Z'));
+        assert.equal(unchanged.changed, false);
+        const archive = await feed(changed.archiveFile!);
+        assert.deepEqual(archive.snapshots.map((snapshot: { at: string }) => snapshot.at), [
+            '2026-09-23T01:00:00.000Z',
+            '2026-09-24T01:00:00.000Z',
+            '2026-09-24T07:00:00.000Z',
+        ]);
+    });
+});
+
+test('31-day rolling feed remains bounded while complete daily records remain in monthly archives', async () => {
+    await withTemp(async (root) => {
+        for (let day = 1; day <= 45; day += 1) {
+            await persistMilestoneHistory(counts(), root,
+                new Date(Date.UTC(2026, 7, day, 8, 30)));
+        }
+        const latest = await feed(join(root, 'latest.json'));
+        const august = await feed(join(root, '2026', '08.json'));
+        const september = await feed(join(root, '2026', '09.json'));
+        assert.equal(august.snapshots.length, 31);
+        assert.equal(september.snapshots.length, 14);
+        // One anchor older than 31 days + the actual snapshots within 31 days.
+        assert.equal(latest.snapshots.length, 33);
+        assert.equal(latest.snapshots[0].at, '2026-08-13T08:30:00.000Z');
+        assert.equal(latest.snapshots[latest.snapshots.length - 1].at,
+            '2026-09-14T08:30:00.000Z');
+    });
+});
+
+test('missing crawler runs do not create fake daily or monthly observations', async () => {
+    await withTemp(async (root) => {
+        await persistMilestoneHistory(counts(), root, new Date('2026-08-31T11:30:00Z'));
+        await persistMilestoneHistory(counts(), root, new Date('2026-10-04T11:30:00Z'));
+        await assert.rejects(() => readFile(join(root, '2026', '09.json')), /ENOENT/);
+        const october = await feed(join(root, '2026', '10.json'));
+        assert.equal(october.snapshots.length, 1);
+        const latest = await feed(join(root, 'latest.json'));
+        assert.equal(latest.snapshots.length, 2);
+    });
+});
