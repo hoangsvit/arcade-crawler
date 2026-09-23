@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "at": "2026-08-03T18:31:09.000Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 4052
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 3413
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 2765
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 2496
+        }
+      ],
+      "source": {
+        "kind": "git-commit",
+        "sha": "8054aa1b4f4d71fb7424567491dfcda9f92d5fae"
+      }
+    },
+    {
+      "at": "2026-08-10T17:42:30.000Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 3845
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 3069
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 2461
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 2291
+        }
+      ],
+      "source": {
+        "kind": "git-commit",
+        "sha": "e1aec893ad62d099c79c702defdb66af933fe776"
+      }
+    },
+    {
+      "at": "2026-08-17T11:15:00.000Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 3710
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 2789
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 2190
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 2152
+        }
+      ],
+      "source": {
+        "kind": "git-commit",
+        "sha": "a7011c67c59c5d271b82fead089d4eff7956197d"
+      }
+    },
+    {
+      "at": "2026-08-24T17:21:09.000Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 3561
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 2513
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 1945
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 2017
+        }
+      ],
+      "source": {
+        "kind": "git-commit",
+        "sha": "88d2972b3432aa86883a0771664266ef8b62d119"
+      }
+    },
+    {
+      "at": "2026-08-31T11:13:04.000Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 3492
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 2204
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 1711
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 1892
+        }
+      ],
+      "source": {
+        "kind": "git-commit",
+        "sha": "75fa99916517c32b76086c9c47f83a5ac6826900"
+      }
+    }
+  ]
+}
