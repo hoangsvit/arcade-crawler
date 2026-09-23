@@ -23,6 +23,7 @@ Dữ liệu crawl được lưu tại:
 - [`data/arcade_milestones.json`](data/arcade_milestones.json) — số slot còn lại của các prize tier.
 - [`data/arcade_milestones_history/latest.json`](data/arcade_milestones_history/latest.json) — feed nhỏ cho UI (31 ngày gần đây và một mẫu trước mốc 31 ngày, nếu có).
 - `data/arcade_milestones_history/YYYY/MM.json` — lịch sử đầy đủ theo tháng UTC, ghi nhận tại lần crawl thành công đầu tiên mỗi ngày UTC và khi số suất hoặc sức chứa thay đổi.
+- Dữ liệu cũ trước khi có lịch sử hằng ngày có thể khôi phục từ các commit của `data/arcade_milestones.json` bằng `node scripts/backfill-milestone-history.mjs` sau `npm run build`. Các mốc này được đánh dấu **git-commit** vì ngày commit không chắc là ngày/giờ crawl chính xác.
 - [`data/arcade_monthly_games.json`](data/arcade_monthly_games.json) — snapshot danh sách game/lab Arcade đang hoạt động ở lần crawl mới nhất.
 - `data/arcade_monthly_games_history/YYYY/MM.json` — archive theo năm/tháng. Ví dụ tháng 09/2026 nằm tại `data/arcade_monthly_games_history/2026/09.json`. File archive được **merge** chứ không replace toàn bộ, nên game đã từng crawl được trong tháng sẽ không bị mất nếu sau đó card biến mất khỏi trang active.
 
