@@ -8,8 +8,11 @@ export type MilestoneCount = {
 };
 
 export type MilestoneSnapshot = {
+    /** UTC crawl timestamp for new records; Git commit time for legacy imports. */
     at: string;
     tiers: MilestoneCount[];
+    /** Legacy snapshots have a verifiable commit but no guaranteed crawl time. */
+    source?: { kind: 'git-commit'; sha: string };
 };
 
 export type MilestoneHistoryFeed = {
@@ -62,9 +65,19 @@ function validateHistory(input: unknown): MilestoneHistoryFeed {
             throw new Error('Invalid or unordered milestone snapshot.');
         }
         previousTime = Date.parse(snapshot.at);
+        const source = snapshot.source;
+        if (source !== undefined && (
+            !source || typeof source !== 'object' || Array.isArray(source) ||
+            (source as Record<string, unknown>).kind !== 'git-commit' ||
+            typeof (source as Record<string, unknown>).sha !== 'string' ||
+            !/^[a-f0-9]{40}$/.test((source as { sha: string }).sha)
+        )) {
+            throw new Error('Invalid Git commit source in milestone history.');
+        }
         return {
             at: snapshot.at,
             tiers: normalizeTiers(snapshot.tiers as MilestoneCount[]),
+            ...(source === undefined ? {} : { source: source as { kind: 'git-commit'; sha: string } }),
         };
     });
     return { version: 1, snapshots };
@@ -116,7 +129,8 @@ async function writeHistory(file: string, feed: MilestoneHistoryFeed) {
  * Permanent UTC-month archives are NOT built from Git commit history; they
  * contain real crawler timestamps and remain present in unchanged months.
  * The rolling 31-day UI feed retains the latest pre-window anchor.
- * Never invent or backfill older observations from historical commits.
+ * Historical Git commit states may be imported separately only when
+ * explicitly marked as commit-dated (never silently called crawl timestamps).
  */
 export async function persistMilestoneHistory(
     tiers: readonly MilestoneCount[],
@@ -157,4 +171,94 @@ export async function persistMilestoneHistory(
     const snapshots = latestWindow([...latest.snapshots, nextSnapshot], observedMs);
     await writeHistory(latestFile, { version: 1, snapshots });
     return { changed: true, latestFile, archiveFile, snapshotCount: snapshots.length };
+}
+
+export type LegacyMilestoneCommit = {
+    sha: string;
+    committedAt: string;
+    tiers: readonly MilestoneCount[];
+};
+
+/**
+ * One-off recovery of verifiable old milestone JSON from Git history.
+ *
+ * Git commit time is a best-known recorded time, NOT the exact original
+ * crawl time. Imported snapshots are annotated and kept distinct from real
+ * crawler observations. Existing live snapshots/archives are never replaced.
+ * The operation is idempotent: reimporting the same SHA changes no file.
+ */
+export async function backfillMilestoneCommits(
+    commits: readonly LegacyMilestoneCommit[],
+    root = MILESTONE_HISTORY_DIR,
+): Promise<{ imported: number; archiveFiles: string[]; latestFile: string }> {
+    const latestFile = join(root, 'latest.json');
+    const latest = await readHistory(latestFile);
+    const firstActual = latest.snapshots.find((snapshot) => snapshot.source === undefined);
+    const earliestLiveTime = firstActual ? Date.parse(firstActual.at) : Infinity;
+
+    const normalized = commits.map((entry): MilestoneSnapshot => {
+        if (!/^[a-f0-9]{40}$/.test(entry.sha) ||
+            !Number.isFinite(Date.parse(entry.committedAt))) {
+            throw new Error('Invalid legacy commit SHA or timestamp.');
+        }
+        return {
+            at: new Date(entry.committedAt).toISOString(),
+            tiers: normalizeTiers(entry.tiers),
+            source: { kind: 'git-commit', sha: entry.sha },
+        };
+    }).filter((entry) => Date.parse(entry.at) < earliestLiveTime)
+      .sort((left, right) => left.at.localeCompare(right.at));
+
+    if (new Set(normalized.map((item) => item.source?.sha)).size !== normalized.length ||
+        normalized.some((item, index) => index > 0 && item.at === normalized[index - 1].at)) {
+        throw new Error('Duplicate Git commits or ambiguous commit timestamps.');
+    }
+
+    const grouped = new Map<string, MilestoneSnapshot[]>();
+    for (const item of normalized) {
+        const archiveFile = historyMonthFile(root, item.at);
+        grouped.set(archiveFile, [...(grouped.get(archiveFile) ?? []), item]);
+    }
+
+    const imports: MilestoneSnapshot[] = [];
+    const archiveFiles: string[] = [];
+    for (const [archiveFile, candidates] of grouped) {
+        const archive = await readHistory(archiveFile);
+        const existingShas = new Set(archive.snapshots
+            .filter((item) => item.source?.kind === 'git-commit')
+            .map((item) => item.source?.sha));
+        const additional = candidates.filter((item) => !existingShas.has(item.source?.sha));
+        if (additional.length === 0) continue;
+        const merged = [...archive.snapshots, ...additional]
+            .sort((left, right) => left.at.localeCompare(right.at));
+        if (merged.some((item, index) => index > 0 && item.at === merged[index - 1].at)) {
+            throw new Error('A legacy commit overlaps an existing observation timestamp.');
+        }
+        imports.push(...additional);
+        // Preserve live observations and previously imported commits.
+        await writeHistory(archiveFile, { version: 1, snapshots: merged });
+        archiveFiles.push(archiveFile);
+    }
+
+    if (imports.length > 0) {
+        const byTime = new Map<string, MilestoneSnapshot>();
+        for (const snapshot of [...latest.snapshots, ...imports]) {
+            if (byTime.has(snapshot.at)) {
+                const existing = byTime.get(snapshot.at);
+                if (JSON.stringify(existing) !== JSON.stringify(snapshot)) {
+                    throw new Error('Conflicting milestone snapshots at the same time.');
+                }
+                continue;
+            }
+            byTime.set(snapshot.at, snapshot);
+        }
+        const sorted = [...byTime.values()].sort((a, b) => a.at.localeCompare(b.at));
+        const lastAt = sorted[sorted.length - 1]?.at;
+        if (lastAt) {
+            await writeHistory(latestFile, {
+                version: 1, snapshots: latestWindow(sorted, Date.parse(lastAt)),
+            });
+        }
+    }
+    return { imported: imports.length, archiveFiles, latestFile };
 }

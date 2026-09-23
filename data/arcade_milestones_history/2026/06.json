@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "at": "2026-06-24T08:22:08.000Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 5040
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 3908
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 2981
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 2500
+        }
+      ],
+      "source": {
+        "kind": "git-commit",
+        "sha": "d5e7afafccda994d902a816081f6759d2d17e152"
+      }
+    },
+    {
+      "at": "2026-06-29T14:41:32.000Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 4837
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 3899
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 2979
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 2500
+        }
+      ],
+      "source": {
+        "kind": "git-commit",
+        "sha": "57ec8ec68c0a0d6b8d6aa5213614aa31a72626d2"
+      }
+    }
+  ]
+}

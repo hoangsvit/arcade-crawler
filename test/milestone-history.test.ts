@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { historyMonthFile, persistMilestoneHistory } from '../src/milestone-history.js';
+import { backfillMilestoneCommits, historyMonthFile, persistMilestoneHistory } from '../src/milestone-history.js';
 
 const counts = (first = 3514, second = 1760, third = 1020, fourth = 1511) => [
     { points: 50, slots: 6000, spotsLeft: first },
@@ -170,5 +170,57 @@ test('missing crawler runs do not create fake daily or monthly observations', as
         assert.equal(october.snapshots.length, 1);
         const latest = await feed(join(root, 'latest.json'));
         assert.equal(latest.snapshots.length, 2);
+    });
+});
+
+test('backfills old committed values without overwriting live observations and is idempotent', async () => {
+    await withTemp(async (root) => {
+        const real = new Date('2026-09-23T03:39:30.748Z');
+        await persistMilestoneHistory(counts(3718, 1622, 781, 1397), root, real);
+        const historical = [
+            { sha: 'a'.repeat(40), committedAt: '2026-08-24T17:21:09Z', tiers: counts(3561) },
+            { sha: 'b'.repeat(40), committedAt: '2026-09-14T16:41:12Z', tiers: counts(3514) },
+            { sha: 'c'.repeat(40), committedAt: '2026-09-21T16:41:46Z', tiers: counts(3718, 1622, 781, 1397) },
+            // A later Git commit must not replace the real 23 September crawl.
+            { sha: 'd'.repeat(40), committedAt: '2026-09-24T00:00:00Z', tiers: counts(3000) },
+        ];
+        const first = await backfillMilestoneCommits(historical, root);
+        assert.equal(first.imported, 3);
+        assert.deepEqual(first.archiveFiles.sort(), [
+            join(root, '2026', '08.json'),
+            join(root, '2026', '09.json'),
+        ]);
+        const latest = await feed(first.latestFile);
+        assert.equal(latest.snapshots.length, 4);
+        assert.equal(latest.snapshots[1].source.sha, 'b'.repeat(40));
+        assert.equal(latest.snapshots[3].source, undefined);
+        const september = await feed(join(root, '2026', '09.json'));
+        assert.deepEqual(september.snapshots.map((x: { at: string }) => x.at), [
+            '2026-09-14T16:41:12.000Z',
+            '2026-09-21T16:41:46.000Z',
+            real.toISOString(),
+        ]);
+        const bytes = await readFile(first.latestFile, 'utf8');
+        const second = await backfillMilestoneCommits(historical, root);
+        assert.equal(second.imported, 0);
+        assert.deepEqual(second.archiveFiles, []);
+        assert.equal(await readFile(first.latestFile, 'utf8'), bytes);
+        await persistMilestoneHistory(counts(3600), root, new Date('2026-09-24T01:00:00Z'));
+        const persisted = await feed(join(root, '2026', '09.json'));
+        assert.equal(persisted.snapshots[0].source.sha, 'b'.repeat(40));
+        assert.equal(persisted.snapshots[1].source.sha, 'c'.repeat(40));
+        assert.equal(persisted.snapshots[2].source, undefined);
+    });
+});
+
+test('rejects an invalid old commit SHA before writing any backfill files', async () => {
+    await withTemp(async (root) => {
+        await assert.rejects(
+            () => backfillMilestoneCommits([
+                { sha: 'invalid', committedAt: '2026-08-24T17:21:09Z', tiers: counts() },
+            ], root),
+            /Invalid legacy commit/,
+        );
+        await assert.rejects(() => readFile(join(root, 'latest.json')), /ENOENT/);
     });
 });
