@@ -21,6 +21,8 @@ Tự động crawl dữ liệu milestone từ **Google Cloud Skills Boost Arcade
 Dữ liệu crawl được lưu tại:
 
 - [`data/arcade_milestones.json`](data/arcade_milestones.json) — số slot còn lại của các prize tier.
+- [`data/arcade_milestones_history/latest.json`](data/arcade_milestones_history/latest.json) — feed nhỏ cho UI (31 ngày gần đây và một mẫu trước mốc 31 ngày, nếu có).
+- `data/arcade_milestones_history/YYYY/MM.json` — lịch sử đầy đủ theo tháng UTC, chỉ thêm snapshot khi số suất hoặc sức chứa thay đổi.
 - [`data/arcade_monthly_games.json`](data/arcade_monthly_games.json) — snapshot danh sách game/lab Arcade đang hoạt động ở lần crawl mới nhất.
 - `data/arcade_monthly_games_history/YYYY/MM.json` — archive theo năm/tháng. Ví dụ tháng 09/2026 nằm tại `data/arcade_monthly_games_history/2026/09.json`. File archive được **merge** chứ không replace toàn bộ, nên game đã từng crawl được trong tháng sẽ không bị mất nếu sau đó card biến mất khỏi trang active.
 
@@ -82,6 +84,7 @@ Workflow [`update-arcade-milestones.yml`](.github/workflows/update-arcade-milest
 Sau mỗi lần chạy, workflow tự commit:
 
 - `data/arcade_milestones.json` nếu dữ liệu milestone thay đổi.
+- `data/arcade_milestones_history/latest.json` cùng archive theo tháng khi có biến động suất, không thêm bản ghi cho các lần crawl không đổi.
 - `data/arcade_monthly_games.json` nếu snapshot game/lab active thay đổi.
 - `data/arcade_monthly_games_history/YYYY/MM.json` nếu có dữ liệu mới/cập nhật của tháng tương ứng.
 - `README.md` với thời gian chạy mới nhất.
