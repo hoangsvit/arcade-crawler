@@ -126,7 +126,7 @@ export async function persistMilestoneHistory(
     const normalized = normalizeTiers(tiers);
     const latestFile = join(root, 'latest.json');
     const latest = await readHistory(latestFile);
-    const previous = latest.snapshots.at(-1);
+    const previous = latest.snapshots[latest.snapshots.length - 1];
     if (previous && sameTiers(previous.tiers, normalized)) {
         return { changed: false, latestFile, archiveFile: null, snapshotCount: latest.snapshots.length };
     }
@@ -137,7 +137,7 @@ export async function persistMilestoneHistory(
     const nextSnapshot: MilestoneSnapshot = { at, tiers: normalized };
     const archiveFile = historyMonthFile(root, at);
     const archive = await readHistory(archiveFile);
-    const lastArchive = archive.snapshots.at(-1);
+    const lastArchive = archive.snapshots[archive.snapshots.length - 1];
     if (lastArchive && Date.parse(lastArchive.at) >= observedMs) {
         throw new Error('Milestone archive already has a newer observation.');
     }
