@@ -10,6 +10,7 @@ on:
       - "data/arcade_milestones.json"
       - "data/arcade_monthly_games.json"
       - "data/arcade_monthly_games_history/**"
+      - "data/arcade_milestones_history/**"
 
   schedule:
     - cron: '0 */6 * * *'
@@ -81,6 +82,9 @@ jobs:
           # are merged by game identity, so a card disappearing later in the month
           # cannot erase data already observed by the crawler.
           git add README.md data/arcade_milestones.json
+          if [ -d data/arcade_milestones_history ]; then
+            git add data/arcade_milestones_history
+          fi
           if [ -f data/arcade_monthly_games.json ]; then
             git add data/arcade_monthly_games.json
           fi
@@ -93,7 +97,7 @@ jobs:
             exit 0
           fi
 
-          if git diff --cached --name-only | grep -Eq '^data/(arcade_milestones|arcade_monthly_games|arcade_monthly_games_history/)'; then
+          if git diff --cached --name-only | grep -Eq '^data/(arcade_milestones|arcade_milestones_history/|arcade_monthly_games|arcade_monthly_games_history/)'; then
             git commit -m "chore: update Arcade data"
           else
             git commit -m "chore: update last run time"

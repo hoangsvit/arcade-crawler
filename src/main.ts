@@ -19,6 +19,7 @@ import {
     TIER_POINTS_SELECTOR,
     type MonthlyArcadeGame,
 } from './arcade-extractors.js';
+import { persistMilestoneHistory } from './milestone-history.js';
 import {
     MONTHLY_GAMES_ARCHIVE_DIR,
     persistMonthlyGameArchives,
@@ -236,6 +237,7 @@ const crawler = new PlaywrightCrawler({
         // Tier data is critical. Persist and publish it before any optional game-detail enrichment.
         await mkdir('data', { recursive: true });
         await writeFile(MILESTONES_FILE, `${JSON.stringify(milestones, null, 2)}\n`, 'utf8');
+        const milestoneHistory = await persistMilestoneHistory(milestones);
 
         const publishedTemplate = SHOULD_PUBLISH_REMOTE_CONFIG
             ? await publishToRemoteConfig(milestones)
@@ -334,6 +336,8 @@ const crawler = new PlaywrightCrawler({
             },
             files: {
                 milestones: MILESTONES_FILE,
+                milestoneHistory: milestoneHistory.latestFile,
+                milestoneHistoryArchive: milestoneHistory.archiveFile,
                 monthlyGames: monthlyGames.length > 0 ? MONTHLY_GAMES_FILE : null,
                 monthlyGameArchives: monthlyArchiveFiles,
             },
@@ -349,6 +353,8 @@ const crawler = new PlaywrightCrawler({
         log.info('Arcade data collected.', {
             url: request.loadedUrl,
             milestoneCount: milestones.length,
+            milestoneHistoryChanged: milestoneHistory.changed,
+            milestoneHistorySamples: milestoneHistory.snapshotCount,
             monthlyGameCount: monthlyGames.length,
             historicalGameCount: historicalGames.length,
             monthlyArchiveCount: monthlyArchiveFiles.length,
