@@ -247,3 +247,40 @@ test('monthly archive preserves games that disappear from a later crawl', async 
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test('latest monthly snapshot preserves known deadline when detail enrichment regresses to null', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'arcade-monthly-latest-'));
+    const latestFile = join(root, 'arcade_monthly_games.json');
+    const archiveDir = join(root, 'history');
+
+    try {
+        const detailed = archivedGame({
+            title: 'Arcade Adventure: Modern Cloud Architecture',
+            accessCode: '1q-architecture-01381',
+            joinUrl: 'https://www.skills.google/games/7441?utm_source=hoangsvit',
+            description: 'Detailed September description',
+            spotsRemaining: 2085,
+        });
+        await persistMonthlyGames([detailed], latestFile, archiveDir);
+
+        const cardOnly = archivedGame({
+            title: 'Arcade Adventure',
+            accessCode: '1q-architecture-01381',
+            joinUrl: 'https://www.skills.google/games/7441?utm_source=hoangsvit',
+            deadline: null,
+            description: null,
+            spotsRemaining: null,
+        });
+        await persistMonthlyGames([cardOnly], latestFile, archiveDir);
+
+        const latest = JSON.parse(await readFile(latestFile, 'utf8')) as MonthlyArcadeGame[];
+        assert.equal(latest.length, 1);
+        assert.equal(latest[0].title, 'Arcade Adventure: Modern Cloud Architecture');
+        assert.equal(latest[0].deadline, '2026-09-30T17:29:28.000Z');
+        assert.equal(latest[0].description, 'Detailed September description');
+        assert.equal(latest[0].spotsRemaining, null);
+        assert.equal(latest[0].month, '2026-09');
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
