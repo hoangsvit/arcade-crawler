@@ -56,9 +56,20 @@ export async function persistMonthlyGames(
     if (games.length === 0) return [];
 
     await mkdir(dirname(latestFile), { recursive: true });
-    await writeJson(latestFile, games);
+    const existing = await readGames(latestFile);
+    const latest = games.map((game) => {
+        const previous = existing.find((candidate) => sameGame(candidate, game));
+        if (!previous) {
+            const month = game.month ?? arcadeMonthKey(game);
+            return month ? { ...game, month } : game;
+        }
 
-    return persistMonthlyGameArchives(games, archiveDir);
+        return mergeLatestGame(previous, game);
+    });
+
+    await writeJson(latestFile, latest);
+
+    return persistMonthlyGameArchives(latest, archiveDir);
 }
 
 export async function persistMonthlyGameArchives(
@@ -128,6 +139,37 @@ function gameNames(game: MonthlyArcadeGame): string[] {
         ...(game.aliases ?? []).map(normalize),
         game.rawTitle ? normalize(game.rawTitle) : '',
     ].filter(Boolean))];
+}
+
+function mergeLatestGame(
+    existing: MonthlyArcadeGame,
+    incoming: MonthlyArcadeGame,
+): MonthlyArcadeGame {
+    const detailUnavailable =
+        incoming.deadline === null
+        && incoming.description === null
+        && incoming.spotsRemaining === null;
+    const deadline = incoming.deadline ?? existing.deadline ?? null;
+    const description = incoming.description ?? existing.description ?? null;
+    const title =
+        detailUnavailable
+        && existing.deadline
+        && normalize(existing.title) !== normalize(incoming.title)
+            ? existing.title
+            : incoming.title;
+    const merged: MonthlyArcadeGame = {
+        ...incoming,
+        title,
+        deadline,
+        description,
+    };
+    const month =
+        incoming.month
+        ?? arcadeMonthKey(merged)
+        ?? existing.month
+        ?? arcadeMonthKey(existing);
+
+    return month ? { ...merged, month } : merged;
 }
 
 function mergeGame(existing: MonthlyArcadeGame, incoming: MonthlyArcadeGame): MonthlyArcadeGame {
