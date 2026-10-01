@@ -1,5 +1,20 @@
 [
   {
+    "title": "Arcade Trail",
+    "imageUrl": "https://services.google.com/fh/files/misc/septrail.png",
+    "accessCode": "1q-vpcpeering-3469",
+    "deadline": null,
+    "deadlineTimeZone": "Asia/Kolkata",
+    "description": null,
+    "points": 1,
+    "joinUrl": "https://www.skills.google/games/7443?utm_source=hoangsvit",
+    "spotsRemaining": null,
+    "source": "arcade_active_card",
+    "sourceUrl": "https://go.cloudskillsboost.google/arcade",
+    "status": "active",
+    "reconstructed": false
+  },
+  {
     "title": "Arcade Adventure",
     "imageUrl": "https://services.google.com/fh/files/misc/advsep.png",
     "accessCode": "1q-architecture-01381",
@@ -38,21 +53,6 @@
     "description": null,
     "points": 1,
     "joinUrl": "https://www.skills.google/games/7444?utm_source=hoangsvit",
-    "spotsRemaining": null,
-    "source": "arcade_active_card",
-    "sourceUrl": "https://go.cloudskillsboost.google/arcade",
-    "status": "active",
-    "reconstructed": false
-  },
-  {
-    "title": "Arcade Trail",
-    "imageUrl": "https://services.google.com/fh/files/misc/septrail.png",
-    "accessCode": "1q-vpcpeering-3469",
-    "deadline": null,
-    "deadlineTimeZone": "Asia/Kolkata",
-    "description": null,
-    "points": 1,
-    "joinUrl": "https://www.skills.google/games/7443?utm_source=hoangsvit",
     "spotsRemaining": null,
     "source": "arcade_active_card",
     "sourceUrl": "https://go.cloudskillsboost.google/arcade",
