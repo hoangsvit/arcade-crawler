@@ -42,6 +42,25 @@
     "reconstructed": true
   },
   {
+    "title": "Arcade Holi-Istic Infrastructures",
+    "rawTitle": "Arcade Holi-Istic Infrastructures",
+    "aliases": [],
+    "imageUrl": "https://services.google.com/fh/files/misc/arcade_spe_mar.png",
+    "accessCode": null,
+    "deadline": null,
+    "deadlineTimeZone": "Asia/Kolkata",
+    "description": null,
+    "points": 2,
+    "joinUrl": null,
+    "spotsRemaining": null,
+    "month": "2026-03",
+    "group": "levelBadges",
+    "source": "official_google_skills_arcade_page",
+    "sourceUrl": "https://go.cloudskillsboost.google/arcade",
+    "status": "game_over",
+    "reconstructed": true
+  },
+  {
     "title": "Arcade March 2026 Sprint 1",
     "rawTitle": "Sprint 1: March 2026",
     "aliases": [
