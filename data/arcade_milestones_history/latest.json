@@ -2,35 +2,6 @@
   "version": 1,
   "snapshots": [
     {
-      "at": "2026-09-14T16:41:12.000Z",
-      "tiers": [
-        {
-          "points": 50,
-          "slots": 6000,
-          "spotsLeft": 3514
-        },
-        {
-          "points": 75,
-          "slots": 4000,
-          "spotsLeft": 1760
-        },
-        {
-          "points": 95,
-          "slots": 3000,
-          "spotsLeft": 1020
-        },
-        {
-          "points": 120,
-          "slots": 2500,
-          "spotsLeft": 1511
-        }
-      ],
-      "source": {
-        "kind": "git-commit",
-        "sha": "73649c5914125609039afcfbd6b8196bf9680158"
-      }
-    },
-    {
       "at": "2026-09-21T16:41:46.000Z",
       "tiers": [
         {
@@ -886,6 +857,31 @@
     },
     {
       "at": "2026-10-22T01:03:36.769Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 3725
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 1852
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 506
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 1189
+        }
+      ]
+    },
+    {
+      "at": "2026-10-23T01:04:23.270Z",
       "tiers": [
         {
           "points": 50,
