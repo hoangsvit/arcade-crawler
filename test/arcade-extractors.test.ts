@@ -129,6 +129,75 @@ test('monthly extraction does not depend on month or game names and normalizes j
     });
 });
 
+test('special Arcade cards outside .shuffle-item are extracted without promotional cards', async () => {
+    const regular = monthlyCard({
+        title: 'Arcade Base Camp October 2026',
+        code: '1q-basecamp-61332',
+        gameId: 7499,
+        image: 'https://example.test/basecamp-oct.png',
+    });
+    // Match the Google Sites October markup: the outer cards are scrollBox,
+    // not shuffle-item, and START lives in a separate link from the image.
+    const specialZone = `
+        <div id="game-shuffle-container">
+            <div class="dark-back pt-4 py-3"><div class="container">
+                <div class="card scrollBox"><div class="row g-0">
+                    <div class="col-lg-6"><div class="card-body">
+                        <a href="https://www.skills.google/games/7501">
+                            <img class="card-img-top specialBadge" src="https://example.test/arcspec-oct.png">
+                        </a>
+                    </div></div>
+                    <div class="col-lg-6 p-5">
+                        <h3 class="card-title"> Trick-or-Metric </h3>
+                        <p>Banish cloud haunts this Halloween!</p>
+                        <p><span>Access code:</span> 1q-spooky-33057</p>
+                        <p>Arcade points: 1</p>
+                        <a href="https://www.skills.google/games/7501?utm_campaign=special">
+                            <button class="btn subsBtn">START!</button>
+                        </a>
+                    </div>
+                </div></div>
+            </div></div>
+            <div class="dark-back pt-4 py-3"><div class="container">
+                <div class="card scrollBox"><div class="row g-0">
+                    <div class="col-lg-6"><div class="card-body">
+                        <a href="https://www.skills.google/games/7500">
+                            <img class="card-img-top specialBadge" src="https://example.test/simul-oct.png">
+                        </a>
+                    </div></div>
+                    <div class="col-lg-6 p-5">
+                        <h3 class="card-title"> Arcade Simulator: Site Reliability Engineer </h3>
+                        <p>Master SRE in this Arcade Simulator!</p>
+                        <p><span>Access code:</span> 1q-reliability-21924</p>
+                        <p>Arcade points: 1</p>
+                        <a href="https://www.skills.google/games/7500?utm_campaign=special">
+                            <button class="btn subsBtn">START!</button>
+                        </a>
+                    </div>
+                </div></div>
+            </div></div>
+            <div class="card scrollBox">
+                <h3 class="card-title">Complete your Skill Badge Journey.</h3>
+                <p>Informational content, not a game.</p>
+            </div>
+        </div>
+    `;
+
+    await withPage(`${tierHtml}${regular}${specialZone}`, async (page) => {
+        const result = await extractMonthlyGames(page.mainFrame());
+        assert.equal(result.candidateCount, 3);
+        assert.equal(result.skippedCount, 0);
+        assert.deepEqual(
+            result.games.map((game) => [game.title, game.accessCode, game.joinUrl]),
+            [
+                ['Arcade Base Camp October 2026', '1q-basecamp-61332', 'https://www.skills.google/games/7499?utm_source=hoangsvit'],
+                ['Trick-or-Metric', '1q-spooky-33057', 'https://www.skills.google/games/7501?utm_source=hoangsvit'],
+                ['Arcade Simulator: Site Reliability Engineer', '1q-reliability-21924', 'https://www.skills.google/games/7500?utm_source=hoangsvit'],
+            ],
+        );
+    });
+});
+
 test('game detail extraction keeps canonical UTC instant for countdowns', async () => {
     const gameDetailHtml = `
         <div id="jump-content">
