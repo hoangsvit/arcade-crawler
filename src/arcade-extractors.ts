@@ -1,7 +1,10 @@
 import type { Frame, Page } from 'playwright';
 
 export const TIER_POINTS_SELECTOR = '.tier-points';
-export const MONTHLY_CARD_SELECTOR = '.shuffle-item';
+// Regular monthly games use .shuffle-item, while featured/special games are
+// rendered as .card.scrollBox inside #game-shuffle-container (October 2026).
+// Scope the extra selector to game links so promotional cards are excluded.
+export const MONTHLY_CARD_SELECTOR = '.shuffle-item, #game-shuffle-container .card.scrollBox:has(a[href*="/games/"])';
 export const GAME_TITLE_SELECTOR = '#jump-content .game__title h1';
 export const GAME_DETAILS_SELECTOR = '#jump-content .game__details';
 export const GAME_DESCRIPTION_SELECTOR = '#jump-content .game__details p:not(.ql-title-medium)';
