@@ -2,31 +2,6 @@
   "version": 1,
   "snapshots": [
     {
-      "at": "2026-10-07T01:53:15.850Z",
-      "tiers": [
-        {
-          "points": 50,
-          "slots": 6000,
-          "spotsLeft": 3727
-        },
-        {
-          "points": 75,
-          "slots": 4000,
-          "spotsLeft": 1701
-        },
-        {
-          "points": 95,
-          "slots": 3000,
-          "spotsLeft": 606
-        },
-        {
-          "points": 120,
-          "slots": 2500,
-          "spotsLeft": 1321
-        }
-      ]
-    },
-    {
       "at": "2026-10-08T02:20:58.049Z",
       "tiers": [
         {
@@ -903,6 +878,31 @@
     },
     {
       "at": "2026-11-08T01:56:12.734Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 3709
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 1904
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 385
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 1119
+        }
+      ]
+    },
+    {
+      "at": "2026-11-09T02:10:55.187Z",
       "tiers": [
         {
           "points": 50,
