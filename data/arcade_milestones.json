@@ -3,24 +3,24 @@
     "points": 50,
     "league": "Arcade Trooper",
     "slots": 6000,
-    "spotsLeft": 3709
+    "spotsLeft": 3682
   },
   {
     "points": 75,
     "league": "Arcade Ranger",
     "slots": 4000,
-    "spotsLeft": 1904
+    "spotsLeft": 1959
   },
   {
     "points": 95,
     "league": "Arcade Champion",
     "slots": 3000,
-    "spotsLeft": 385
+    "spotsLeft": 421
   },
   {
     "points": 120,
     "league": "Arcade Legend",
     "slots": 2500,
-    "spotsLeft": 1119
+    "spotsLeft": 1013
   }
 ]
