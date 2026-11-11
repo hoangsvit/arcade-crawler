@@ -2,56 +2,6 @@
   "version": 1,
   "snapshots": [
     {
-      "at": "2026-10-09T02:38:15.751Z",
-      "tiers": [
-        {
-          "points": 50,
-          "slots": 6000,
-          "spotsLeft": 3727
-        },
-        {
-          "points": 75,
-          "slots": 4000,
-          "spotsLeft": 1701
-        },
-        {
-          "points": 95,
-          "slots": 3000,
-          "spotsLeft": 606
-        },
-        {
-          "points": 120,
-          "slots": 2500,
-          "spotsLeft": 1321
-        }
-      ]
-    },
-    {
-      "at": "2026-10-10T01:58:32.472Z",
-      "tiers": [
-        {
-          "points": 50,
-          "slots": 6000,
-          "spotsLeft": 3727
-        },
-        {
-          "points": 75,
-          "slots": 4000,
-          "spotsLeft": 1701
-        },
-        {
-          "points": 95,
-          "slots": 3000,
-          "spotsLeft": 606
-        },
-        {
-          "points": 120,
-          "slots": 2500,
-          "spotsLeft": 1321
-        }
-      ]
-    },
-    {
       "at": "2026-10-11T01:23:56.197Z",
       "tiers": [
         {
@@ -903,6 +853,31 @@
     },
     {
       "at": "2026-11-10T00:29:04.955Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 3682
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 1959
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 421
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 1013
+        }
+      ]
+    },
+    {
+      "at": "2026-11-11T02:20:48.142Z",
       "tiers": [
         {
           "points": 50,
