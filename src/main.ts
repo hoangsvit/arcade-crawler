@@ -26,7 +26,7 @@ import {
     persistMonthlyGames,
 } from './monthly-games-archive.js';
 
-const START_URL = 'https://go.cloudskillsboost.google/arcade';
+const START_URL = 'https://go.skills.google/arcade';
 const SELECTOR_TIMEOUT_MS = 90_000;
 const GAME_DETAIL_TIMEOUT_MS = 15_000;
 const REMOTE_CONFIG_PARAMETER_KEY =
