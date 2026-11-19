@@ -10,7 +10,7 @@ export const GAME_DETAILS_SELECTOR = '#jump-content .game__details';
 export const GAME_DESCRIPTION_SELECTOR = '#jump-content .game__details p:not(.ql-title-medium)';
 export const GAME_DATETIME_SELECTOR = '#jump-content .game__details ql-datetime[millisecondssinceepoch]';
 export const ARCADE_TIME_ZONE = 'Asia/Kolkata';
-export const OFFICIAL_ARCADE_SOURCE_URL = 'https://go.cloudskillsboost.google/arcade';
+export const OFFICIAL_ARCADE_SOURCE_URL = 'https://go.skills.google/arcade';
 
 export type MonthlyArcadeGame = {
     title: string;
