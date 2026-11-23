@@ -850,6 +850,31 @@
           "spotsLeft": 830
         }
       ]
+    },
+    {
+      "at": "2026-11-23T15:29:47.714Z",
+      "tiers": [
+        {
+          "points": 50,
+          "slots": 6000,
+          "spotsLeft": 3725
+        },
+        {
+          "points": 75,
+          "slots": 4000,
+          "spotsLeft": 2037
+        },
+        {
+          "points": 95,
+          "slots": 3000,
+          "spotsLeft": 473
+        },
+        {
+          "points": 120,
+          "slots": 2500,
+          "spotsLeft": 745
+        }
+      ]
     }
   ]
 }
