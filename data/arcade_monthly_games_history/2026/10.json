@@ -37,6 +37,25 @@
     "reconstructed": true
   },
   {
+    "title": "Arcade Adventure: October2026",
+    "rawTitle": "Arcade Adventure: October2026",
+    "aliases": [],
+    "imageUrl": "https://services.google.com/fh/files/misc/octadv-go.png",
+    "accessCode": null,
+    "deadline": null,
+    "deadlineTimeZone": "Asia/Kolkata",
+    "description": null,
+    "points": 1,
+    "joinUrl": null,
+    "spotsRemaining": null,
+    "month": "2026-10",
+    "group": "levelBadges",
+    "source": "official_google_skills_arcade_page",
+    "sourceUrl": "https://go.skills.google/arcade",
+    "status": "game_over",
+    "reconstructed": true
+  },
+  {
     "title": "Arcade Base Camp October 2026",
     "imageUrl": "https://services.google.com/fh/files/misc/octgobc.png",
     "accessCode": "1q-basecamp-61332",
